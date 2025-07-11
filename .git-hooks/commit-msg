@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# 錯誤處理函數
+error_handler() {
+    local line_number=$1
+    local error_code=$2
+    echo "Error: Script failed at line ${line_number}, error code: ${error_code}" >&2
+    echo "Location: ${BASH_SOURCE[1]}:${line_number}" >&2
+    exit "${error_code}"
+}
+
+# 設置錯誤處理
+setup_error_handling() {
+    set -eE  # -E 確保 ERR trap 會被繼承
+    trap 'error_handler ${LINENO} $?' ERR
+}
+
+# 檢查是否在 git 倉庫中
+check_git_repository() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Warning: Not in a git repository, skipping hook execution" >&2
+        exit 0
+    fi
+}
+
+# 從分支名稱提取 Jira 單號
+extract_jira_ticket() {
+    local branch_name
+    local branch_name_no_prefix
+    
+    branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    branch_name_no_prefix=$(echo "$branch_name" | sed 's|^[^/]*\/||')
+    echo "$branch_name_no_prefix" | grep -oE '^[A-Z]{1,5}-[0-9]+' || echo ""
+}
+
+# 添加 Jira 單號到 commit 訊息
+add_jira_ticket_to_commit() {
+    local commit_msg_file=$1
+    local jira_ticket
+    local original_msg
+    
+    if [ ! -f "$commit_msg_file" ]; then
+        echo "Error: Commit message file does not exist: $commit_msg_file" >&2
+        return 1
+    fi
+    
+    if ! jira_ticket=$(extract_jira_ticket); then
+        echo "Error: Failed to extract Jira ticket" >&2
+        return 1
+    fi
+    
+    if [ -n "$jira_ticket" ]; then
+        if ! original_msg=$(cat "$commit_msg_file"); then
+            echo "Error: Failed to read commit message file" >&2
+            return 1
+        fi
+        
+        if [[ ! "$original_msg" =~ $jira_ticket ]]; then
+            if ! echo "[$jira_ticket] $original_msg" > "$commit_msg_file"; then
+                echo "Error: Failed to write commit message file" >&2
+                return 1
+            fi
+            echo "Added Jira ticket: $jira_ticket" >&2
+        fi
+    fi
+}
+
+# 執行本地 hook
+execute_local_hook() {
+    local hook_name=$1
+    shift  # 移除第一個參數，剩下的參數傳給 hook
+    
+    local git_dir
+    local local_hook_path
+    
+    if ! git_dir=$(git rev-parse --git-dir 2>/dev/null); then
+        echo "Error: Failed to get git directory" >&2
+        return 1
+    fi
+    
+    local_hook_path="$git_dir/hooks/$hook_name"
+    
+    if [ -f "$local_hook_path" ] && [ -x "$local_hook_path" ]; then
+        exec "$local_hook_path" "$@"
+    fi
+}
+
+# 主函數
+main() {
+    local commit_msg_file=$1
+    
+    # 設置錯誤處理
+    setup_error_handling
+    
+    # 檢查參數
+    if [ -z "$commit_msg_file" ]; then
+        echo "Error: Missing commit message file parameter" >&2
+        exit 1
+    fi
+    
+    check_git_repository
+    add_jira_ticket_to_commit "$commit_msg_file"
+    execute_local_hook "commit-msg" "$@"
+    
+    exit 0
+}
+
+# 執行主函數
+main "$@"
