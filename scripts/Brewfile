@@ -1,0 +1,34 @@
+tap "th-ch/youtube-music"
+# Fast and simple Node.js version manager
+brew "fnm"
+# Distributed revision control system
+brew "git"
+# Open source programming language to build simple/reliable/efficient software
+brew "go"
+# Task is a task runner/build tool that aims to be simpler and easier to use
+brew "go-task"
+# Platform built on V8 to build network applications
+brew "node"
+# UNIX shell (command interpreter)
+brew "zsh"
+cask "font-fira-code"
+# GIT client
+cask "fork"
+# Terminal emulator that uses platform-native UI and GPU acceleration
+cask "ghostty"
+# Provides updates to various Microsoft products
+cask "microsoft-auto-update"
+# Multi-platform web browser
+cask "microsoft-edge"
+# App to write, plan, collaborate, and get organised
+cask "notion"
+# Browse, manage, inspect containers and images
+cask "podman-desktop"
+# .NET IDE
+cask "rider"
+# Snip or pin screenshots
+cask "snipaste"
+# Open-source code editor
+cask "visual-studio-code"
+# YouTube Music Desktop App
+cask "youtube-music"

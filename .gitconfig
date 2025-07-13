@@ -1,9 +1,0 @@
-[user]
-	name = Eric Yeh
-	email = eric91343@gmail.com
-[includeIf "gitdir:~/repos/onelab/"]
-	path = /Users/eric.yeh/repos/onelab/.gitconfig
-[includeIf "gitdir:~/repos/ascentistech/"]
-	path = /Users/eric.yeh/repos/ascentistech/.gitconfig
-[core]
-	hooksPath = /Users/eric.yeh/.git-hooks
