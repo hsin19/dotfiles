@@ -103,6 +103,49 @@ EOF
     echo "✅ Git identities setup completed!"
 }
 
+setup_zsh() {
+    echo "Setting up Oh My Zsh and plugins..."
+
+    # Check if Zsh is installed, which is a prerequisite for Oh My Zsh
+    if ! command -v zsh &>/dev/null; then
+        echo "⚠️ Zsh is not installed. Please install it first (e.g., via Homebrew)."
+        return 1
+    fi
+
+    # Install Oh My Zsh if it's not already installed
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        echo "Installing Oh My Zsh..."
+        # Run the installer non-interactively
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    else
+        echo "✅ Oh My Zsh is already installed."
+    fi
+
+    # Define the custom path for plugins and themes
+    ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+
+    # Helper function to clone a git repo if the destination directory doesn't exist
+    clone_if_not_exists() {
+        local repo_url="$1"
+        local dest_path="$2"
+        local name="$3"
+        if [ ! -d "$dest_path" ]; then
+            echo "Installing $name..."
+            git clone --depth=1 "$repo_url" "$dest_path"
+        else
+            echo "✅ $name is already installed."
+        fi
+    }
+
+    # Install theme and plugins
+    clone_if_not_exists "https://github.com/romkatv/powerlevel10k.git" "${ZSH_CUSTOM}/themes/powerlevel10k" "Powerlevel10k theme"
+    clone_if_not_exists "https://github.com/zsh-users/zsh-syntax-highlighting.git" "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" "zsh-syntax-highlighting plugin"
+    clone_if_not_exists "https://github.com/zsh-users/zsh-autosuggestions.git" "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" "zsh-autosuggestions plugin"
+    clone_if_not_exists "https://github.com/TamCore/autoupdate-oh-my-zsh-plugins.git" "${ZSH_CUSTOM}/plugins/autoupdate" "autoupdate-oh-my-zsh-plugins"
+
+    echo "✅ Oh My Zsh and plugins installed."
+}
+
 setup_opencommit() {
     echo "Setting up OpenCommit..."
 
@@ -139,6 +182,7 @@ main() {
     
     load_env
     install_brew_packages
+    setup_zsh
     setup_git_identities
     setup_opencommit
 
