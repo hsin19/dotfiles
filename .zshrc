@@ -122,5 +122,8 @@ source $ZSH/oh-my-zsh.sh
 alias docker=podman
 alias brewup="brew update && brew upgrade && brew cleanup"
 alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
+
 # FNM (Fast Node Manager)
-eval "$(fnm env --use-on-cd --shell zsh)"
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --use-on-cd --shell zsh)"
+fi

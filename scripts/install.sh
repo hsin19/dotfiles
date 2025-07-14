@@ -72,7 +72,7 @@ setup_git_identities() {
 
     # onelab
     mkdir -p "$HOME/repos/onelab"
-    git config --global includeIf."gitdir:~/repos/onelab/".path "~/repos/onelab/.gitconfig"
+    git config --global includeIf."gitdir:~/repos/onelab/".path ~/repos/onelab/.gitconfig
     cat <<-EOF > ~/repos/onelab/.gitconfig
 [user]
     email = ${ONELAB_EMAIL:-eric.yeh@onelab.tw}
@@ -94,7 +94,7 @@ EOF
 
     # ascentistech
     mkdir -p "$HOME/repos/ascentistech"
-    git config --global includeIf."gitdir:~/repos/ascentistech/".path "~/repos/ascentistech/.gitconfig"
+    git config --global includeIf."gitdir:~/repos/ascentistech/".path ~/repos/ascentistech/.gitconfig
     cat <<-EOF > ~/repos/ascentistech/.gitconfig
 [user]
     email = ${ASCENTISTECH_EMAIL:-eric.yeh@ascentistech.com}
