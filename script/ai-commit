@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Auto commit tool, handles stage/commit automatically
+# Usage: ./ai-commit "message" or git ai-commit "message"
+# Args: commit message (optional)
+
+set -euo pipefail
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source library modules
+source "$SCRIPT_DIR/lib/git-commit.sh"
+
+# Function to stage files
+stage_files() {
+    local status_output
+    status_output=$(git status --porcelain)
+    
+    if [ -z "$status_output" ]; then
+        echo "No changes to stage"
+        return 0
+    fi
+    
+    echo "Staging all changes..."
+    git add .
+    echo "✅ All changes staged"
+}
+
+# Main function
+main() {
+    local commit_message="${1:-}"
+    
+    # Check if we're in a git repository
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "❌ Error: Not in a git repository" >&2
+        exit 1
+    fi
+    
+    echo "🚀 Starting git commit process..."
+    
+    # Stage files
+    stage_files
+    
+    # Check if there are staged changes
+    if ! git diff --cached --quiet; then
+        # Generate/process commit message
+        local processed_message
+        if ! processed_message=$(generate_commit_message "$commit_message"); then
+            echo "❌ Failed to process commit message" >&2
+            exit 1
+        fi
+        
+        # Commit with processed message
+        if git commit -m "$processed_message"; then
+            echo "✅ Committed with message: $processed_message"
+        else
+            echo "❌ Failed to commit" >&2
+            exit 1
+        fi
+    else
+        echo "⚠️ No staged changes to commit"
+        exit 0
+    fi
+    
+    echo "🎉 Git commit process completed!"
+}
+
+# Only run main if this script is executed directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

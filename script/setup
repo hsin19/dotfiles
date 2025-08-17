@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Development environment setup script
+# Usage: ./setup
+# Sets up Homebrew, Git, Zsh, OpenCommit configs
+
 set -euo pipefail
 
 # Get script directory
@@ -66,6 +70,12 @@ setup_git_identities() {
     # --- Global Git Config ---
     git config --global user.name "${GIT_USER_NAME:-Eric Yeh}"
     git config --global user.email "${GIT_USER_EMAIL:-eric91343@gmail.com}"
+
+    # --- Git Aliases ---
+    echo "Setting up Git aliases..."
+    git config --global alias.ai-commit "!bash $HOME/script/ai-commit"
+    git config --global alias.setup-hook "!bash $HOME/script/setup-git-hook"
+    echo "✅ Git aliases 'ai-commit' and 'setup-hook' configured"
 
     # --- Per-directory Git Config ---
     mkdir -p "$HOME/repos/github"

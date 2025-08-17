@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Bootstrap script for new machines
+# Usage: curl -fsSL <raw-url>/bootstrap | bash
+# Clones dotfiles repo and runs setup
+
 set -euo pipefail
 
 # dotfiles 函數（替代 alias）
