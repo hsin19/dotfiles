@@ -77,6 +77,12 @@ setup_git_identities() {
     git config --global alias.setup-hook "!bash $HOME/script/setup-git-hook"
     echo "✅ Git aliases 'ai-commit' and 'setup-hook' configured"
 
+    # --- Global Git Ignore ---
+    echo "Setting up global Git ignore..."
+    local global_gitignore="$HOME/.gitignore_global"
+    git config --global core.excludesfile "$global_gitignore"
+    echo "✅ Configured global gitignore to use $global_gitignore"
+
     # --- Per-directory Git Config ---
     mkdir -p "$HOME/repos/github"
 
