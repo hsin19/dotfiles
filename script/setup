@@ -47,11 +47,11 @@ install_brew_packages() {
     # Look for Brewfile in the same directory as this script
     
     if [ -f "$SCRIPT_DIR/Brewfile" ]; then
-        echo "Using Brewfile from scripts directory..."
+        echo "Using Brewfile from script directory..."
         brew bundle --file="$SCRIPT_DIR/Brewfile"
     else
         echo "❌ Error: Brewfile not found at $SCRIPT_DIR/Brewfile"
-        echo "Please create a Brewfile in the scripts directory."
+        echo "Please create a Brewfile in the script directory."
         return 1
     fi
 
