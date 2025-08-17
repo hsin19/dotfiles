@@ -50,18 +50,22 @@ main() {
         exit 1
     fi
     
-    # Skip if the message is empty or just comments
-    if [ -z "$(echo "$original_msg" | grep -v '^#')" ]; then
-        exit 0
+    # Extract input commit content based on commit_source
+    if [ -z "$commit_source" ]; then
+        # This is plain 'git commit' - remove Git's auto-generated comment lines
+        input_commit=$(echo "$original_msg" | grep -v '^#' | sed '/^\s*$/d' || true)
+    else
+        # This is user input (git commit -m), keep everything including lines starting with #
+        input_commit="$original_msg"
     fi
     
-    if ! modified_msg=$(generate_commit_message "$original_msg"); then
+    if ! modified_msg=$(generate_commit_message "$input_commit"); then
         echo "Error: Failed to process commit message" >&2
         exit 1
     fi
     
     # Only write to file if message has changed
-    if [ "$original_msg" != "$modified_msg" ]; then
+    if [ "$input_commit" != "$modified_msg" ]; then
         if ! echo "$modified_msg" > "$commit_msg_file"; then
             echo "Error: Failed to write commit message file" >&2
             exit 1
