@@ -21,3 +21,19 @@
 
    bash $HOME/script/setup
    ```
+## 常用指令
+
+- 同步最新的配置
+  直接跑 bootstrap，會自動做更新/備份
+  ```sh
+  # chmod +x $HOME/script/bootstrap # 如果需要，先給予執行權限
+
+  $HOME/script/bootstrap
+  ```
+
+- 添加新的配置
+  ```sh
+  dotfiles add <檔案路径1> <檔案路径2> ... 多檔案時空白分隔
+  dotfiles commit -m "描述變更內容"
+  dotfiles push
+  ```

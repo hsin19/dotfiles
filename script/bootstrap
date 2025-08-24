@@ -62,26 +62,38 @@ clone_dotfiles() {
     dotfiles config --local status.showUntrackedFiles no
 }
 
-checkout_dotfiles() {
+handle_conflicts() {
+    local operation="$1"
+    local output="$2"
     local backup_dir="$HOME/config-backup"
     
+    local conflicts
+    conflicts=$(echo "$output" | grep -E "^\s+\." | awk '{print $1}' || true)
+
+    if [ -n "$conflicts" ]; then
+        echo "⚠️ $operation conflicts found. Backing up conflicting files..."
+        local operation_backup_dir="$backup_dir/$operation-conflicts-$(date +%Y%m%d_%H%M%S)"
+        mkdir -p "$operation_backup_dir"
+        
+        while IFS= read -r file; do
+            if [ -n "$file" ] && [ -e "$HOME/$file" ]; then
+                local backup_path="$operation_backup_dir/$file"
+                mkdir -p "$(dirname "$backup_path")"
+                mv "$HOME/$file" "$backup_path"
+                echo "Backed up: $file"
+            fi
+        done <<< "$conflicts"
+        return 0
+    else
+        return 1
+    fi
+}
+
+checkout_dotfiles() {
     echo "Attempting dotfiles checkout..."
     
     if ! checkout_output=$(dotfiles checkout 2>&1); then
-        local conflicts
-        conflicts=$(echo "$checkout_output" | grep -E "^\s+\." | awk '{print $1}' || true)
-
-        if [ -n "$conflicts" ]; then
-            echo "⚠️ Conflicting files found. Backing up to $backup_dir"
-            mkdir -p "$backup_dir"
-            while IFS= read -r file; do
-                if [ -n "$file" ] && [ -e "$HOME/$file" ]; then
-                    local backup_path="$backup_dir/$file"
-                    mkdir -p "$(dirname "$backup_path")"
-                    mv "$HOME/$file" "$backup_path"
-                    echo "Backed up: $file"
-                fi
-            done <<< "$conflicts"
+        if handle_conflicts "checkout" "$checkout_output"; then
             dotfiles checkout
             echo "✅ Dotfiles checked out successfully"
         else
@@ -90,6 +102,27 @@ checkout_dotfiles() {
         fi
     else
         echo "✅ Dotfiles checked out successfully"
+    fi
+    
+    # Pull latest changes
+    echo "Pulling latest dotfiles updates..."
+    if ! pull_output=$(dotfiles pull 2>&1); then
+        # Check if it's a merge conflict
+        if echo "$pull_output" | grep -q "would be overwritten\|Merge conflict"; then
+            if handle_conflicts "pull" "$pull_output"; then
+                # Reset and pull again
+                dotfiles reset --hard HEAD
+                if dotfiles pull; then
+                    echo "✅ Dotfiles updated to latest version (conflicts backed up)"
+                else
+                    echo "⚠️ Still failed to pull updates after reset"
+                fi
+            fi
+        else
+            echo "⚠️ Failed to pull latest updates: $pull_output"
+        fi
+    else
+        echo "✅ Dotfiles updated to latest version"
     fi
 }
 
