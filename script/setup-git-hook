@@ -68,8 +68,8 @@ remove_prepare_commit_msg_hook() {
         sed -i.bak '/# === DOTFILES HOOK START ===/,/# === DOTFILES HOOK END ===/d' "$hook_file"
         rm "$hook_file.bak"
 
-        # remove file if only shebang + empty line remains
-        if [[ ! -s "$hook_file" || $(wc -l < "$hook_file") -le 2 ]]; then
+        # remove file if only comments and empty lines remain
+        if [[ ! -s "$hook_file" ]] || ! grep -vE '^\s*$|^\s*#' "$hook_file" > /dev/null; then
             rm "$hook_file"
             echo "🗑️ Removed empty prepare-commit-msg hook from $(basename "$repo_path")"
         else
