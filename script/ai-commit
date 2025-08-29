@@ -1,8 +1,12 @@
 #!/bin/bash
 
-# Auto commit tool, handles stage/commit automatically
-# Usage: ./ai-commit "message" or git ai-commit "message"
-# Args: commit message (optional)
+# Auto commit tool with AI-powered commit message generation
+# Usage: 
+#   ./ai-commit                        - Generate AI commit message automatically
+#   ./ai-commit "message"              - Commit with custom message  
+#   ./ai-commit "# custom prompt"      - Generate AI message with custom prompt
+# Args: 
+#   message     Commit message or AI prompt (starting with #) (optional)
 
 set -euo pipefail
 
@@ -12,24 +16,69 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source library modules
 source "$SCRIPT_DIR/lib/git-commit.sh"
 
+# Function to show usage
+show_usage() {
+    echo "Usage: ai-commit [MESSAGE]"
+    echo ""
+    echo "BEHAVIOR:"
+    echo "  - No message: AI generates commit message from git diff"
+    echo "  - Message starts with #: Use as AI prompt for generation"
+    echo "  - Regular message: Use as-is for commit"
+    echo ""
+    echo "EXAMPLES:"
+    echo "  ai-commit                          # AI generates message"
+    echo "  ai-commit \"fix: resolve bug\"       # Use custom message"
+    echo "  ai-commit \"# focus on auth logic\"  # AI with custom prompt"
+    echo ""
+    echo "ENVIRONMENT VARIABLES:"
+    echo "  OPENAI_API_KEY    OpenAI API key for GPT-based generation"
+    echo ""
+    echo "REQUIREMENTS:"
+    echo "  - For AI: ollama (with llama3.2:3b) or OpenAI API key"
+    echo "  - For OpenAI: curl and jq commands"
+}
+
 # Function to stage files
 stage_files() {
-    local status_output
-    status_output=$(git status --porcelain)
-    
-    if [ -z "$status_output" ]; then
-        echo "No changes to stage"
+    if ! git diff --cached --quiet; then
         return 0
     fi
     
-    echo "Staging all changes..."
+    echo "ℹ️  No staged changes found. Staging all changes..."
     git add .
-    echo "✅ All changes staged"
+    
+    if git diff --cached --quiet; then
+        # Still no staged changes after git add
+        echo "❌ No changes to stage"
+        return 1
+    else
+        echo "✅ All changes staged"
+        return 0
+    fi
 }
 
 # Main function
 main() {
-    local commit_message="${1:-}"
+    local commit_message=""
+    
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --help|-h)
+                show_usage
+                exit 0
+                ;;
+            -*)
+                echo "❌ Unknown option: $1" >&2
+                show_usage >&2
+                exit 1
+                ;;
+            *)
+                commit_message="$1"
+                shift
+                ;;
+        esac
+    done
     
     # Check if we're in a git repository
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
