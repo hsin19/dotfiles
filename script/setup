@@ -9,7 +9,7 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-load_env() {
+_load_env() {
     local env_file="$SCRIPT_DIR/.env"
     
     if [ -f "$env_file" ]; then
@@ -20,7 +20,7 @@ load_env() {
     fi
 }
 
-install_homebrew() {
+_install_homebrew() {
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
         if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
@@ -39,10 +39,10 @@ install_homebrew() {
     fi
 }
 
-install_brew_packages() {
+_install_brew_packages() {
     echo "Setting up Homebrew packages..."
     
-    install_homebrew
+    _install_homebrew
 
     echo "Updating Homebrew..."
     brew update
@@ -64,7 +64,7 @@ install_brew_packages() {
     echo "✅ Homebrew packages installation completed!"
 }
 
-setup_git_identities() {
+_setup_git_identities() {
     echo "Setting up Git identities..."
     
     # --- Global Git Config ---
@@ -74,7 +74,9 @@ setup_git_identities() {
     # --- Git Aliases ---
     echo "Setting up Git aliases..."
     git config --global alias.ai-commit "!bash $HOME/script/ai-commit"
+    git config --global alias.ccc "!bash $HOME/script/ai-commit"
     git config --global alias.setup-hook "!bash $HOME/script/setup-git-hook"
+    git config --global alias.sss "!bash $HOME/script/setup-git-hook"
     echo "✅ Git aliases 'ai-commit' and 'setup-hook' configured"
 
     # --- Global Git Ignore ---
@@ -119,7 +121,7 @@ EOF
     echo "✅ Git identities setup completed!"
 }
 
-setup_zsh() {
+_setup_zsh() {
     echo "Setting up Oh My Zsh and plugins..."
 
     # Check if Zsh is installed, which is a prerequisite for Oh My Zsh
@@ -141,7 +143,7 @@ setup_zsh() {
     ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
     # Helper function to clone a git repo if the destination directory doesn't exist
-    clone_if_not_exists() {
+    _clone_if_not_exists() {
         local repo_url="$1"
         local dest_path="$2"
         local name="$3"
@@ -154,15 +156,15 @@ setup_zsh() {
     }
 
     # Install theme and plugins
-    clone_if_not_exists "https://github.com/romkatv/powerlevel10k.git" "${ZSH_CUSTOM}/themes/powerlevel10k" "Powerlevel10k theme"
-    clone_if_not_exists "https://github.com/zsh-users/zsh-syntax-highlighting.git" "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" "zsh-syntax-highlighting plugin"
-    clone_if_not_exists "https://github.com/zsh-users/zsh-autosuggestions.git" "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" "zsh-autosuggestions plugin"
-    clone_if_not_exists "https://github.com/TamCore/autoupdate-oh-my-zsh-plugins.git" "${ZSH_CUSTOM}/plugins/autoupdate" "autoupdate-oh-my-zsh-plugins"
+    _clone_if_not_exists "https://github.com/romkatv/powerlevel10k.git" "${ZSH_CUSTOM}/themes/powerlevel10k" "Powerlevel10k theme"
+    _clone_if_not_exists "https://github.com/zsh-users/zsh-syntax-highlighting.git" "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" "zsh-syntax-highlighting plugin"
+    _clone_if_not_exists "https://github.com/zsh-users/zsh-autosuggestions.git" "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" "zsh-autosuggestions plugin"
+    _clone_if_not_exists "https://github.com/TamCore/autoupdate-oh-my-zsh-plugins.git" "${ZSH_CUSTOM}/plugins/autoupdate" "autoupdate-oh-my-zsh-plugins"
 
     echo "✅ Oh My Zsh and plugins installed."
 }
 
-setup_opencommit() {
+_setup_opencommit() {
     echo "Setting up OpenCommit..."
 
     if ! command -v npm &> /dev/null; then
@@ -196,11 +198,11 @@ setup_opencommit() {
 main() {
     echo "Starting development environment setup..."
     
-    load_env
-    install_brew_packages
-    setup_zsh
-    setup_git_identities
-    setup_opencommit
+    _load_env
+    _install_brew_packages
+    _setup_zsh
+    _setup_git_identities
+    _setup_opencommit
 
     echo "All done! Your development environment is ready."
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Extract Jira ticket from branch name
-extract_jira_ticket() {
+_extract_jira_ticket() {
     local branch_name
     local branch_name_no_prefix
     
@@ -11,11 +11,11 @@ extract_jira_ticket() {
 }
 
 # Add Jira ticket to commit message
-add_jira_ticket_to_commit() {
+_add_jira_ticket_to_commit() {
     local original_msg="$1"
     local jira_ticket
     
-    if ! jira_ticket=$(extract_jira_ticket); then
+    if ! jira_ticket=$(_extract_jira_ticket); then
         echo "Error: Failed to extract Jira ticket" >&2
         return 1
     fi
@@ -33,7 +33,7 @@ add_jira_ticket_to_commit() {
 }
 
 # Function to call LLM services with prompt
-call_llm_service() {
+_call_llm_service() {
     local prompt="$1"
     local ai_message=""
     
@@ -71,7 +71,7 @@ call_llm_service() {
 }
 
 # Function to generate AI commit message from git diff
-generate_ai_commit_message() {
+_generate_ai_commit_message() {
     local custom_context="$1"
     
     # Get first 100 lines of staged changes directly
@@ -106,13 +106,13 @@ $diff_content
 Please respond with ONLY the commit message, no explanations or additional text."
 
     # Call LLM service
-    if ! call_llm_service "$prompt"; then
+    if ! _call_llm_service "$prompt"; then
         return 1
     fi
 }
 
 # Fallback commit message generation based on file analysis
-generate_fallback_commit_message() {
+_generate_fallback_commit_message() {
     # Get list of changed files directly
     local files_changed
     files_changed=$(git diff --cached --name-only)
@@ -151,9 +151,9 @@ generate_commit_message() {
     if [ -z "$commit_message" ]; then
         # No message provided, use AI to generate
         echo "ℹ️  No message provided, generating AI commit message..." >&2
-        if ! commit_message=$(generate_ai_commit_message ""); then
+        if ! commit_message=$(_generate_ai_commit_message ""); then
             echo "❌ AI generation failed, using fallback" >&2
-            commit_message=$(generate_fallback_commit_message)
+            commit_message=$(_generate_fallback_commit_message)
         else
             echo "✅ AI generated message: $commit_message" >&2
         fi
@@ -162,16 +162,16 @@ generate_commit_message() {
         local ai_prompt="${commit_message#\#}"  # Remove leading #
         ai_prompt=$(echo "$ai_prompt" | sed 's/^[[:space:]]*//')  # Trim leading spaces
         echo "ℹ️  Using custom AI prompt: $ai_prompt" >&2
-        if ! commit_message=$(generate_ai_commit_message "$ai_prompt"); then
+        if ! commit_message=$(_generate_ai_commit_message "$ai_prompt"); then
             echo "❌ AI generation failed, using fallback" >&2
-            commit_message=$(generate_fallback_commit_message)
+            commit_message=$(_generate_fallback_commit_message)
         else
             echo "✅ AI generated message with custom prompt: $commit_message" >&2
         fi
     fi
     
     # Process message with Jira ticket (and future enhancements)
-    if ! processed_message=$(add_jira_ticket_to_commit "$commit_message"); then
+    if ! processed_message=$(_add_jira_ticket_to_commit "$commit_message"); then
         echo "Error: Failed to process commit message" >&2
         return 1
     fi

@@ -2,7 +2,6 @@
 
 # Git hook: prepare-commit-msg
 # Auto-triggered by git commit
-# Adds Jira ticket prefix from branch name
 
 set -euo pipefail
 

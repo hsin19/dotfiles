@@ -11,7 +11,7 @@ dotfiles() {
     /usr/bin/git --git-dir="$HOME/.dotfiles/" --work-tree="$HOME" "$@"
 }
 
-install_homebrew() {
+_install_homebrew() {
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
         if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
@@ -30,7 +30,7 @@ install_homebrew() {
     fi
 }
 
-install_git() {
+_install_git() {
     if ! command -v git &>/dev/null; then
         echo "Installing Git..."
         if brew install git; then
@@ -44,7 +44,7 @@ install_git() {
     fi
 }
 
-clone_dotfiles() {
+_clone_dotfiles() {
     local dotfiles_dir="$HOME/.dotfiles"
     
     if [ ! -d "$dotfiles_dir" ]; then
@@ -62,7 +62,7 @@ clone_dotfiles() {
     dotfiles config --local status.showUntrackedFiles no
 }
 
-handle_conflicts() {
+_handle_conflicts() {
     local operation="$1"
     local output="$2"
     local backup_dir="$HOME/config-backup"
@@ -89,11 +89,11 @@ handle_conflicts() {
     fi
 }
 
-checkout_dotfiles() {
+_checkout_dotfiles() {
     echo "Attempting dotfiles checkout..."
     
     if ! checkout_output=$(dotfiles checkout 2>&1); then
-        if handle_conflicts "checkout" "$checkout_output"; then
+        if _handle_conflicts "checkout" "$checkout_output"; then
             dotfiles checkout
             echo "✅ Dotfiles checked out successfully"
         else
@@ -109,7 +109,7 @@ checkout_dotfiles() {
     if ! pull_output=$(dotfiles pull 2>&1); then
         # Check if it's a merge conflict
         if echo "$pull_output" | grep -q "would be overwritten\|Merge conflict"; then
-            if handle_conflicts "pull" "$pull_output"; then
+            if _handle_conflicts "pull" "$pull_output"; then
                 # Reset and pull again
                 dotfiles reset --hard HEAD
                 if dotfiles pull; then
@@ -130,10 +130,10 @@ main() {
     echo "Starting dotfiles bootstrap..."
     
     # 執行安裝步驟
-    install_homebrew
-    install_git
-    clone_dotfiles
-    checkout_dotfiles
+    _install_homebrew
+    _install_git
+    _clone_dotfiles
+    _checkout_dotfiles
     
     echo "✅ Dotfiles bootstrap completed successfully!"
     echo "You may need to restart your terminal to see all changes."

@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/git-commit.sh"
 
 # Function to show usage
-show_usage() {
+_show_usage() {
     echo "Usage: ai-commit [MESSAGE]"
     echo ""
     echo "BEHAVIOR:"
@@ -34,12 +34,12 @@ show_usage() {
     echo "  OPENAI_API_KEY    OpenAI API key for GPT-based generation"
     echo ""
     echo "REQUIREMENTS:"
-    echo "  - For AI: ollama (with llama3.2:3b) or OpenAI API key"
+    echo "  - For AI: gemini CLI or OpenAI API key"
     echo "  - For OpenAI: curl and jq commands"
 }
 
 # Function to stage files
-stage_files() {
+_stage_files() {
     if ! git diff --cached --quiet; then
         return 0
     fi
@@ -65,12 +65,12 @@ main() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             --help|-h)
-                show_usage
+                _show_usage
                 exit 0
                 ;;
             -*)
                 echo "❌ Unknown option: $1" >&2
-                show_usage >&2
+                _show_usage >&2
                 exit 1
                 ;;
             *)
@@ -89,7 +89,7 @@ main() {
     echo "🚀 Starting git commit process..."
     
     # Stage files
-    stage_files
+    _stage_files
     
     # Check if there are staged changes
     if ! git diff --cached --quiet; then

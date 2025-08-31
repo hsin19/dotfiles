@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-setup_prepare_commit_msg_hook() {
+_setup_prepare_commit_msg_hook() {
     local repo_path="${1:-.}"
     local hook_file="$repo_path/.git/hooks/prepare-commit-msg"
     
@@ -50,7 +50,7 @@ fi
     echo "✅ prepare-commit-msg hook configured in $(basename "$repo_path")"
 }
 
-remove_prepare_commit_msg_hook() {
+_remove_prepare_commit_msg_hook() {
     local repo_path="${1:-.}"
     local hook_file="$repo_path/.git/hooks/prepare-commit-msg"
 
@@ -80,7 +80,7 @@ remove_prepare_commit_msg_hook() {
     fi
 }
 
-check_hook_status() {
+_check_hook_status() {
     local repo_path="${1:-.}"
     local hook_file="$repo_path/.git/hooks/prepare-commit-msg"
 
@@ -157,14 +157,14 @@ main() {
 
     case "$ACTION" in
         "unset")
-            remove_prepare_commit_msg_hook "$REPO_PATH"
+            _remove_prepare_commit_msg_hook "$REPO_PATH"
             ;;
         "status")
-            check_hook_status "$REPO_PATH"
+            _check_hook_status "$REPO_PATH"
             ;;
         "set")
             echo "🔧 Setting up prepare-commit-msg hook in: $(basename "$REPO_PATH")"
-            setup_prepare_commit_msg_hook "$REPO_PATH"
+            _setup_prepare_commit_msg_hook "$REPO_PATH"
             echo "🎉 prepare-commit-msg hook setup completed!"
             ;;
     esac
