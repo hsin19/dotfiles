@@ -41,18 +41,20 @@ _call_llm_service() {
     if command -v gemini >/dev/null 2>&1; then
         echo "ℹ️  Using Gemini CLI for AI generation..." >&2
         # Use gemini CLI in non-interactive mode with a direct prompt
-        ai_message=$(echo "$prompt" | gemini 2>/dev/null | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        ai_message=$(printf "%s" "$prompt" | gemini 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | head -1)
     elif command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && [ -n "${OPENAI_API_KEY:-}" ]; then
         echo "ℹ️  Using OpenAI API (GPT-5 mini) for AI generation..." >&2
-        ai_message=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -d "{
-                \"model\": \"gpt-5-mini\",
-                \"messages\": [{\"role\": \"user\", \"content\": \"$prompt\"}],
-                \"max_tokens\": 100,
-                \"temperature\": 0.3
-            }" | jq -r '.choices[0].message.content' 2>/dev/null | head -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        ai_message=$(
+            jq -n --arg prompt "$prompt" \
+               '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:100, temperature:0.3}' \
+            | curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer '"$OPENAI_API_KEY"'" \
+                -d @- \
+            | jq -r '.choices[0].message.content' 2>/dev/null \
+            | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+            | head -1
+        )
     else
         echo "⚠️ No AI service available (gemini CLI or OpenAI API key)." >&2
         return 1
@@ -76,7 +78,7 @@ _generate_ai_commit_message() {
     
     # Get first 100 lines of staged changes directly
     local diff_content
-    diff_content=$(git diff --cached | head -100)
+    diff_content=$(git -c color.ui=never diff --cached --no-ext-diff | sed -n '1,100p')
     
     if [ -z "$diff_content" ]; then
         echo "Error: No staged changes found for AI analysis" >&2
