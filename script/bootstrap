@@ -67,24 +67,43 @@ _handle_conflicts() {
     local output="$2"
     local backup_dir="$HOME/config-backup"
     
-    local conflicts
-    conflicts=$(echo "$output" | grep -E "^\s+\." | awk '{print $1}' || true)
+    local operation_backup_dir
+    operation_backup_dir="$backup_dir/$operation-conflicts-$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$operation_backup_dir"
 
-    if [ -n "$conflicts" ]; then
-        echo "⚠️ $operation conflicts found. Backing up conflicting files..."
-        local operation_backup_dir="$backup_dir/$operation-conflicts-$(date +%Y%m%d_%H%M%S)"
-        mkdir -p "$operation_backup_dir"
-        
-        while IFS= read -r file; do
-            if [ -n "$file" ] && [ -e "$HOME/$file" ]; then
-                local backup_path="$operation_backup_dir/$file"
-                mkdir -p "$(dirname "$backup_path")"
-                mv "$HOME/$file" "$backup_path"
-                echo "Backed up: $file"
-            fi
-        done <<< "$conflicts"
+    local found=0
+    while IFS= read -r raw; do
+        line="${raw#"${raw%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+
+        [ -z "$line" ] && continue
+
+        case "$line" in
+            error:*|fatal:*|warning:*|hint:*|Please*|Aborting*|From*|Updating*|"* branch "*|"* -> "*)
+                continue
+                ;;
+        esac
+
+        line="${line#./}"
+
+        src=""
+        if [ -e "$HOME/$line" ] || [ -L "$HOME/$line" ]; then
+            src="$HOME/$line"
+        else
+            continue
+        fi
+
+        found=1
+        dst="$operation_backup_dir/$line"
+        mkdir -p "$(dirname "$dst")"
+        mv -- "$src" "$dst"
+        echo "ℹ️  Backed up: $line"
+    done <<< "$output"
+
+    if [ "$found" -eq 1 ]; then
         return 0
     else
+        echo "⚠️ No conflicts found"
         return 1
     fi
 }
@@ -94,11 +113,12 @@ _checkout_dotfiles() {
     
     if ! checkout_output=$(dotfiles checkout 2>&1); then
         if _handle_conflicts "checkout" "$checkout_output"; then
-            dotfiles checkout
-            echo "✅ Dotfiles checked out successfully"
-        else
-            echo "❌ Checkout failed for unknown reason"
-            exit 1
+            if dotfiles checkout; then
+                echo "✅ Dotfiles checked out successfully (conflicts backed up)"
+            else
+                echo "❌ Dotfiles checkout failed"
+                exit 1
+            fi
         fi
     else
         echo "✅ Dotfiles checked out successfully"
@@ -134,7 +154,9 @@ main() {
     _install_git
     _clone_dotfiles
     _checkout_dotfiles
-    
+
+    chmod +x "$HOME/.dotfiles/scripts/*"
+
     echo "✅ Dotfiles bootstrap completed successfully!"
     echo "You may need to restart your terminal to see all changes."
 }
