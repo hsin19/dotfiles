@@ -9,6 +9,8 @@ brew "go"
 brew "go-task"
 # Platform built on V8 to build network applications
 brew "node"
+# Extremely fast Python package installer and resolver, written in Rust
+brew "uv"
 # UNIX shell (command interpreter)
 brew "zsh"
 cask "font-fira-code"

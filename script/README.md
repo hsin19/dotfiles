@@ -36,4 +36,6 @@
   dotfiles add <檔案路径1> <檔案路径2> ... 多檔案時空白分隔
   dotfiles commit -m "描述變更內容"
   dotfiles push
+
+  brew bundle dump --file=script/Brewfile --force --describe --no-vscode # sync 目前安裝的 brew packages
   ```
