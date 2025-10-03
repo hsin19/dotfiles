@@ -36,50 +36,54 @@ _add_jira_ticket_to_commit() {
 _call_llm_service() {
     local prompt="$1"
     local ai_message=""
-    
+
     # Try to use different AI services (prioritize based on availability)
-    if command -v gemini >/dev/null 2>&1; then
+    if command -v claude >/dev/null 2>&1; then
+        echo "ℹ️  Using Claude Code CLI for AI generation..." >&2
+        # Use claude with -p flag for single prompt response
+        ai_message=$(claude -p "$prompt" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    elif command -v gemini >/dev/null 2>&1; then
         echo "ℹ️  Using Gemini CLI for AI generation..." >&2
         # Use gemini CLI in non-interactive mode with a direct prompt
-        ai_message=$(printf "%s" "$prompt" | gemini 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | head -1)
+        # Capture full response (not just first line) to support multi-line messages
+        ai_message=$(printf "%s" "$prompt" | gemini 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
     elif command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && [ -n "${OPENAI_API_KEY:-}" ]; then
         echo "ℹ️  Using OpenAI API (GPT-5 mini) for AI generation..." >&2
         ai_message=$(
             jq -n --arg prompt "$prompt" \
-               '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:100, temperature:0.3}' \
+               '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}' \
             | curl -s -X POST "https://api.openai.com/v1/chat/completions" \
                 -H "Content-Type: application/json" \
-                -H "Authorization: Bearer '"$OPENAI_API_KEY"'" \
+                -H "Authorization: Bearer ${OPENAI_API_KEY}" \
                 -d @- \
             | jq -r '.choices[0].message.content' 2>/dev/null \
-            | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
-            | head -1
+            | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
         )
     else
-        echo "⚠️ No AI service available (gemini CLI or OpenAI API key)." >&2
+        echo "⚠️ No AI service available (claude CLI, gemini CLI or OpenAI API key)." >&2
         return 1
     fi
-    
+
     # Validate AI response
     if [ -z "$ai_message" ] || [ "$ai_message" = "null" ]; then
         echo "⚠️ AI generation failed." >&2
         return 1
     fi
-    
+
     # Clean up the response
     ai_message=$(echo "$ai_message" | sed 's/^"//; s/"$//')
-    
+
     echo "$ai_message"
 }
 
 # Function to generate AI commit message from git diff
 _generate_ai_commit_message() {
     local custom_context="$1"
-    
+
     # Get first 100 lines of staged changes directly
     local diff_content
     diff_content=$(git -c color.ui=never diff --cached --no-ext-diff | sed -n '1,100p')
-    
+
     if [ -z "$diff_content" ]; then
         echo "Error: No staged changes found for AI analysis" >&2
         return 1
@@ -90,22 +94,24 @@ _generate_ai_commit_message() {
     if [ -n "$custom_context" ]; then
         context_part="
 
-Additional context: $custom_context"
+IMPORTANT - User's focus/emphasis: $custom_context
+Pay special attention to this when crafting the commit message. Emphasize the aspects the user highlighted."
     fi
-    
-    local prompt="Based on the following git diff, generate a concise and descriptive commit message following conventional commit format (type(scope): description). 
+
+    local prompt="Based on the following git diff, generate a concise and descriptive commit message following conventional commit format (type(scope): description).
 
 The commit message should:
 1. Start with a type (feat, fix, docs, style, refactor, test, chore, etc.)
 2. Include scope if applicable (component/file affected)
 3. Be written in imperative mood (e.g., 'add feature' not 'added feature')
-4. Be under 72 characters for the subject line
-5. Focus on WHAT changed and WHY, not HOW${context_part}
+4. The subject line should be under 72 characters
+5. Focus on WHAT changed and WHY, not HOW
+6. If the change is complex, include a body paragraph after a blank line explaining details${context_part}
 
 Git diff:
 $diff_content
 
-Please respond with ONLY the commit message, no explanations or additional text."
+Please respond with the commit message only. If you need to add a body, separate it from the subject with a blank line."
 
     # Call LLM service
     if ! _call_llm_service "$prompt"; then

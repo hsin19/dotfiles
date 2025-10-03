@@ -22,19 +22,20 @@ _show_usage() {
     echo ""
     echo "BEHAVIOR:"
     echo "  - No message: AI generates commit message from git diff"
-    echo "  - Message starts with #: Use as AI prompt for generation"
+    echo "  - Message starts with #: Guide AI to emphasize specific aspects"
     echo "  - Regular message: Use as-is for commit"
     echo ""
     echo "EXAMPLES:"
-    echo "  ai-commit                          # AI generates message"
-    echo "  ai-commit \"fix: resolve bug\"       # Use custom message"
-    echo "  ai-commit \"# focus on auth logic\"  # AI with custom prompt"
+    echo "  ai-commit                                         # AI generates message"
+    echo "  ai-commit \"fix: resolve bug\"                    # Use custom message"
+    echo "  ai-commit \"# focus on performance improvements\" # Guide AI emphasis"
+    echo "  ai-commit \"# main change is refactoring\"        # Guide AI to highlight refactor"
     echo ""
     echo "ENVIRONMENT VARIABLES:"
     echo "  OPENAI_API_KEY    OpenAI API key for GPT-based generation"
     echo ""
     echo "REQUIREMENTS:"
-    echo "  - For AI: gemini CLI or OpenAI API key"
+    echo "  - For AI: claude CLI, gemini CLI, or OpenAI API key"
     echo "  - For OpenAI: curl and jq commands"
 }
 
@@ -99,10 +100,38 @@ main() {
             echo "❌ Failed to process commit message" >&2
             exit 1
         fi
-        
-        # Commit with processed message
-        if git commit -m "$processed_message"; then
-            echo "✅ Committed with message: $processed_message"
+
+        # Build git commit command with multiple -m flags for multi-line messages
+        local -a commit_args=()
+        local current_paragraph=""
+
+        # Read message line by line and group into paragraphs
+        while IFS= read -r line || [ -n "$line" ]; do
+            if [ -z "$line" ]; then
+                # Empty line - commit current paragraph if exists
+                if [ -n "$current_paragraph" ]; then
+                    commit_args+=("-m" "$current_paragraph")
+                    current_paragraph=""
+                fi
+            else
+                # Add line to current paragraph
+                if [ -n "$current_paragraph" ]; then
+                    current_paragraph="$current_paragraph"$'\n'"$line"
+                else
+                    current_paragraph="$line"
+                fi
+            fi
+        done <<< "$processed_message"
+
+        # Don't forget the last paragraph
+        if [ -n "$current_paragraph" ]; then
+            commit_args+=("-m" "$current_paragraph")
+        fi
+
+        # Commit with processed message(s)
+        if git commit "${commit_args[@]}"; then
+            echo "✅ Committed with message:"
+            printf "%s\n" "$processed_message"
         else
             echo "❌ Failed to commit" >&2
             exit 1
