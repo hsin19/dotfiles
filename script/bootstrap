@@ -155,8 +155,6 @@ main() {
     _clone_dotfiles
     _checkout_dotfiles
 
-    chmod +x "$HOME/.dotfiles/scripts/*"
-
     echo "✅ Dotfiles bootstrap completed successfully!"
     echo "You may need to restart your terminal to see all changes."
 }
