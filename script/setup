@@ -27,7 +27,7 @@ _install_homebrew() {
             echo "✅ Homebrew installed successfully"
             
             if [[ $(uname -m) == "arm64" ]]; then
-                # 讓後續步驟能找到 brew
+                # let subsequent steps find brew
                 export PATH="/opt/homebrew/bin:$PATH"
             fi
         else
@@ -46,7 +46,8 @@ _install_brew_packages() {
 
     echo "Updating Homebrew..."
     brew update
-
+    brew upgrade
+    
     echo "Installing packages from Brewfile..."
     # Look for Brewfile in the same directory as this script
     
@@ -77,7 +78,7 @@ _setup_git_identities() {
     git config --global alias.ccc "!bash $HOME/script/ai-commit"
     git config --global alias.setup-hook "!bash $HOME/script/setup-git-hook"
     git config --global alias.sss "!bash $HOME/script/setup-git-hook"
-    echo "✅ Git aliases 'ai-commit' and 'setup-hook' configured"
+    echo "✅ Git aliases setup completed!"
 
     # --- Global Git Ignore ---
     echo "Setting up global Git ignore..."
@@ -164,35 +165,30 @@ _setup_zsh() {
     echo "✅ Oh My Zsh and plugins installed."
 }
 
-_setup_opencommit() {
-    echo "Setting up OpenCommit..."
+_setup_npm_packages() {
+    echo "Setting up npm packages..."
 
     if ! command -v npm &> /dev/null; then
         echo "❌ npm not found, please install Node.js first."
         return 1
     fi
 
-    # Check if oco is already installed
-    if ! command -v oco &> /dev/null; then
-        npm install -g opencommit
-    else
-        echo "oco (opencommit) already installed, skipping npm install."
-    fi
+    # Define global npm packages to install/update
+    local npm_packages=(
+        "@anthropic-ai/claude-code"
+        "@google/gemini-cli"
+    )
     
-    # Check if OCO_API_KEY is set
-    if [ -z "${OCO_API_KEY:-}" ]; then
-        echo "⚠️ No OCO_API_KEY found in environment, skipping OpenCommit configuration"
-        echo "To configure OpenCommit later, add OCO_API_KEY to your .env file"
-        return 0
-    fi
+    echo "Installing/updating global npm packages..."
     
-    # Configure opencommit
-    oco config set OCO_AI_PROVIDER="${OCO_AI_PROVIDER:-gemini}"
-    oco config set OCO_MODEL="${OCO_MODEL:-gemini-2.0-flash}"
-    oco config set OCO_API_KEY="$OCO_API_KEY"
-    oco config set OCO_GITPUSH=false
+    npm update -g npm
     
-    echo "✅ OpenCommit setup completed!"
+    for package in "${npm_packages[@]}"; do
+        echo "Installing/updating $package..."
+        npm install -g "$package@latest"
+    done
+    
+    echo "✅ npm packages setup completed!"
 }
 
 main() {
@@ -202,7 +198,7 @@ main() {
     _install_brew_packages
     _setup_zsh
     _setup_git_identities
-    _setup_opencommit
+    _setup_npm_packages
 
     echo "All done! Your development environment is ready."
 }
