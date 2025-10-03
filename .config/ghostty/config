@@ -1,6 +1,6 @@
 # https://ghostty.org/docs/config/reference
 
-theme = catppuccin-mocha
+theme = Catppuccin Mocha
 background-opacity = 0.95
 copy-on-select = clipboard
 confirm-close-surface = false
