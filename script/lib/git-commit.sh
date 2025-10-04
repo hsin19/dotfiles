@@ -32,64 +32,14 @@ _add_jira_ticket_to_commit() {
     fi
 }
 
-# Function to call LLM services with prompt
-_call_llm_service() {
-    local prompt="$1"
-    local ai_message=""
-
-    # Try to use different AI services (prioritize based on availability)
-    if command -v claude >/dev/null 2>&1; then
-        echo "ℹ️  Using Claude Code CLI for AI generation..." >&2
-        # Use claude with -p flag for single prompt response
-        ai_message=$(claude -p "$prompt" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-    elif command -v gemini >/dev/null 2>&1; then
-        echo "ℹ️  Using Gemini CLI for AI generation..." >&2
-        # Use gemini CLI in non-interactive mode with a direct prompt
-        # Capture full response (not just first line) to support multi-line messages
-        ai_message=$(printf "%s" "$prompt" | gemini 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-    elif command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && [ -n "${OPENAI_API_KEY:-}" ]; then
-        echo "ℹ️  Using OpenAI API (GPT-5 mini) for AI generation..." >&2
-        ai_message=$(
-            jq -n --arg prompt "$prompt" \
-               '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}' \
-            | curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-                -H "Content-Type: application/json" \
-                -H "Authorization: Bearer ${OPENAI_API_KEY}" \
-                -d @- \
-            | jq -r '.choices[0].message.content' 2>/dev/null \
-            | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
-        )
-    else
-        echo "⚠️ No AI service available (claude CLI, gemini CLI or OpenAI API key)." >&2
-        return 1
-    fi
-
-    # Validate AI response
-    if [ -z "$ai_message" ] || [ "$ai_message" = "null" ]; then
-        echo "⚠️ AI generation failed." >&2
-        return 1
-    fi
-
-    # Clean up the response
-    ai_message=$(echo "$ai_message" | sed 's/^"//; s/"$//')
-
-    echo "$ai_message"
-}
-
-# Function to generate AI commit message from git diff
-_generate_ai_commit_message() {
+# Build AI prompt for commit message generation
+_build_commit_prompt() {
     local custom_context="$1"
 
-    # Get first 100 lines of staged changes directly
+    # Get first 100 lines of staged changes
     local diff_content
     diff_content=$(git -c color.ui=never diff --cached --no-ext-diff | sed -n '1,100p')
 
-    if [ -z "$diff_content" ]; then
-        echo "Error: No staged changes found for AI analysis" >&2
-        return 1
-    fi
-
-    # Prepare the prompt for AI
     local context_part=""
     if [ -n "$custom_context" ]; then
         context_part="
@@ -98,7 +48,8 @@ IMPORTANT - User's focus/emphasis: $custom_context
 Pay special attention to this when crafting the commit message. Emphasize the aspects the user highlighted."
     fi
 
-    local prompt="Based on the following git diff, generate a concise and descriptive commit message following conventional commit format (type(scope): description).
+    cat <<EOF
+Based on the following git diff, generate a concise and descriptive commit message following conventional commit format (type(scope): description).
 
 The commit message should:
 1. Start with a type (feat, fix, docs, style, refactor, test, chore, etc.)
@@ -111,12 +62,113 @@ The commit message should:
 Git diff:
 $diff_content
 
-Please respond with the commit message only. If you need to add a body, separate it from the subject with a blank line."
+Please respond with the commit message only. If you need to add a body, separate it from the subject with a blank line.
+EOF
+}
 
-    # Call LLM service
-    if ! _call_llm_service "$prompt"; then
+# Try Claude Code CLI
+_try_claude() {
+    local custom_context="$1"
+
+    if ! command -v claude >/dev/null 2>&1; then
         return 1
     fi
+
+    echo "ℹ️  Using Claude Code CLI for AI generation..." >&2
+
+    local prompt
+    prompt=$(_build_commit_prompt "$custom_context")
+
+    local result
+    result=$(claude -p "$prompt" 2>/dev/null)
+
+    if [ -z "$result" ] || [ "$result" = "null" ]; then
+        return 1
+    fi
+
+    echo "$result"
+}
+
+# Try Gemini CLI
+_try_gemini() {
+    local custom_context="$1"
+
+    if ! command -v gemini >/dev/null 2>&1; then
+        return 1
+    fi
+
+    echo "ℹ️  Using Gemini CLI for AI generation..." >&2
+
+    local prompt
+    prompt=$(_build_commit_prompt "$custom_context")
+
+    local result
+    result=$(printf "%s" "$prompt" | gemini 2>/dev/null)
+
+    if [ -z "$result" ] || [ "$result" = "null" ]; then
+        return 1
+    fi
+
+    echo "$result"
+}
+
+# Try OpenAI API
+_try_openai() {
+    local custom_context="$1"
+
+    if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1 || [ -z "${OPENAI_API_KEY:-}" ]; then
+        return 1
+    fi
+
+    echo "ℹ️  Using OpenAI API (GPT-5 mini) for AI generation..." >&2
+
+    local prompt
+    prompt=$(_build_commit_prompt "$custom_context")
+
+    local result
+    result=$(
+        jq -n --arg prompt "$prompt" \
+           '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}' \
+        | curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OPENAI_API_KEY}" \
+            -d @- \
+        | jq -r '.choices[0].message.content' 2>/dev/null
+    )
+
+    if [ -z "$result" ] || [ "$result" = "null" ]; then
+        return 1
+    fi
+
+    echo "$result"
+}
+
+# Function to generate AI commit message from git diff
+_generate_ai_commit_message() {
+    local custom_context="$1"
+
+    # Try LLM services in priority order
+    local ai_message
+    if ai_message=$(_try_claude "$custom_context"); then
+        :
+    elif ai_message=$(_try_gemini "$custom_context"); then
+        :
+    elif ai_message=$(_try_openai "$custom_context"); then
+        :
+    else
+        echo "⚠️ No AI service available (claude CLI, gemini CLI or OpenAI API key)." >&2
+        return 1
+    fi
+
+    # Clean up response (trim whitespace, remove surrounding quotes)
+    ai_message=$(echo "$ai_message" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//')
+
+    if [ -z "$ai_message" ]; then
+        echo "⚠️ AI generation produced empty result." >&2
+        return 1
+    fi
+
+    echo "$ai_message"
 }
 
 # Fallback commit message generation based on file analysis
@@ -154,7 +206,13 @@ _generate_fallback_commit_message() {
 generate_commit_message() {
     local commit_message="$1"
     local processed_message
-    
+
+    # Check if there are staged changes (needed for AI and fallback)
+    if git diff --cached --quiet; then
+        echo "Error: No staged changes found" >&2
+        return 1
+    fi
+
     # Check if message starts with # (use as AI prompt) or is empty (use AI)
     if [ -z "$commit_message" ]; then
         # No message provided, use AI to generate
@@ -177,13 +235,13 @@ generate_commit_message() {
             echo "✅ AI generated message with custom prompt: $commit_message" >&2
         fi
     fi
-    
+
     # Process message with Jira ticket (and future enhancements)
     if ! processed_message=$(_add_jira_ticket_to_commit "$commit_message"); then
         echo "Error: Failed to process commit message" >&2
         return 1
     fi
-    
+
     # Return processed message
     echo "$processed_message"
 }
