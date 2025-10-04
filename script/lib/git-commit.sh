@@ -162,8 +162,9 @@ _generate_ai_commit_message() {
         return 1
     fi
 
-    # Clean up response (trim whitespace, remove surrounding quotes)
-    ai_message=$(echo "$ai_message" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//')
+    # Clean up response: remove whitespace, quotes, backticks from start/end
+    local strip_chars="[[:space:]\"'\`]"
+    ai_message=$(echo "$ai_message" | sed -E -e "s/^${strip_chars}+//" -e "s/${strip_chars}+$//")
 
     if [ -z "$ai_message" ]; then
         echo "⚠️ AI generation produced empty result." >&2
