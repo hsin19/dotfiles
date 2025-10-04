@@ -4,9 +4,10 @@
 _extract_jira_ticket() {
     local branch_name
     local branch_name_no_prefix
-    
+
     branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-    branch_name_no_prefix=$(echo "$branch_name" | sed 's|^[^/]*\/||')
+    # Remove prefix before first slash (e.g., feature/ABC-123 -> ABC-123)
+    branch_name_no_prefix="${branch_name#*/}"
     echo "$branch_name_no_prefix" | grep -oE '^[A-Z]{1,5}-[0-9]+' || echo ""
 }
 
@@ -14,12 +15,12 @@ _extract_jira_ticket() {
 _add_jira_ticket_to_commit() {
     local original_msg="$1"
     local jira_ticket
-    
+
     if ! jira_ticket=$(_extract_jira_ticket); then
         echo "Error: Failed to extract Jira ticket" >&2
         return 1
     fi
-    
+
     if [ -n "$jira_ticket" ]; then
         if [[ $original_msg != *"$jira_ticket"* ]]; then
             echo "[$jira_ticket] $original_msg"
@@ -41,7 +42,8 @@ _build_commit_prompt() {
     diff_content=$(git -c color.ui=never diff --cached --no-ext-diff | sed -n '1,100p')
 
     local context_part=""
-    if [ -n "$custom_context" ]; then
+    # Add custom context if it contains non-whitespace characters
+    if [[ -n "$custom_context" && "$custom_context" =~ [^[:space:]] ]]; then
         context_part="
 
 IMPORTANT - User's focus/emphasis: $custom_context
@@ -176,16 +178,16 @@ _generate_fallback_commit_message() {
     # Get list of changed files directly
     local files_changed
     files_changed=$(git diff --cached --name-only)
-    
+
     if [ -z "$files_changed" ]; then
         echo "chore: update files"
         return
     fi
-    
+
     # Count files
     local file_count
     file_count=$(echo "$files_changed" | wc -l | tr -d ' ')
-    
+
     if [ "$file_count" -eq 1 ]; then
         # Single file - use filename
         local filename
@@ -226,7 +228,6 @@ generate_commit_message() {
     elif [[ "$commit_message" =~ ^#.* ]]; then
         # Message starts with #, use as AI prompt
         local ai_prompt="${commit_message#\#}"  # Remove leading #
-        ai_prompt=$(echo "$ai_prompt" | sed 's/^[[:space:]]*//')  # Trim leading spaces
         echo "ℹ️  Using custom AI prompt: $ai_prompt" >&2
         if ! commit_message=$(_generate_ai_commit_message "$ai_prompt"); then
             echo "❌ AI generation failed, using fallback" >&2
