@@ -46,25 +46,44 @@ _build_commit_prompt() {
     if [[ -n "$custom_context" && "$custom_context" =~ [^[:space:]] ]]; then
         context_part="
 
-IMPORTANT - User's focus/emphasis: $custom_context
-Pay special attention to this when crafting the commit message. Emphasize the aspects the user highlighted."
+### User's Focus
+**IMPORTANT**: Pay special attention to the following when crafting the commit message:
+- $custom_context"
     fi
 
     cat <<EOF
-Based on the following git diff, generate a concise and descriptive commit message following conventional commit format (type(scope): description).
+You are a git commit message generator. Generate a commit message following the Conventional Commits specification.
 
-The commit message should:
-1. Start with a type (feat, fix, docs, style, refactor, test, chore, etc.)
-2. Include scope if applicable (component/file affected)
-3. Be written in imperative mood (e.g., 'add feature' not 'added feature')
-4. The subject line should be under 72 characters
-5. Focus on WHAT changed and WHY, not HOW
-6. If the change is complex, include a body paragraph after a blank line explaining details${context_part}
+## Output Format
+
+<type>(<scope>): <description>
+
+[optional body with bullet points using -]
+
+## Rules
+
+### Subject Line
+- Start with type: feat, fix, docs, style, refactor, test, chore, perf, build, ci, revert
+- Include scope if applicable (component/file affected)
+- Use imperative mood (e.g., 'add' not 'added')
+- No capitalization of first letter after colon
+- No period at end
+- Maximum 72 characters
+
+### Body (if needed for complex changes)
+- Separate from subject with blank line
+- Use bullet points with "-"
+- Maximum 100 characters per line
+- Explain WHAT and WHY, not HOW
+- Be objective and concise${context_part}
+
+## Critical Requirements
+1. Output ONLY the commit message
+2. NO additional explanations, questions, or comments
+3. NO formatting delimiters like \`\`\` or quotes
 
 Git diff:
 $diff_content
-
-Please respond with the commit message only. If you need to add a body, separate it from the subject with a blank line.
 EOF
 }
 
