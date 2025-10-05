@@ -6,7 +6,7 @@ _extract_jira_ticket() {
 
     branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
     # Match Jira ticket at start or after slash (e.g., ABC-123 or feature/ABC-123)
-    echo "$branch_name" | grep -oE '(^|/)[A-Z]{1,5}-[0-9]+' | sed 's|^/||' || echo ""
+    echo "$branch_name" | grep -oE '(^|/)[A-Z]{2,5}-[0-9]+' | sed 's|^/||' || echo ""
 }
 
 # Add Jira ticket to commit message
@@ -31,7 +31,7 @@ _add_jira_ticket_to_commit() {
 # Build AI prompt for commit message generation
 _build_commit_prompt() {
     local custom_context="$1"
-    local diff_lines="${2:-100}"  # Default to 100 lines if not specified
+    local diff_lines="${2}"
 
     # Get staged changes diff
     local diff_section
@@ -44,11 +44,21 @@ Use the following git commands to retrieve staged changes information:
 
 Analyze the changes and generate an appropriate commit message."
     else
+        local total_lines
+        total_lines=$(git -c color.ui=never diff --cached --no-ext-diff | wc -l | tr -d ' ')
+
         diff_section="## Git diff
 
 \`\`\`diff
 $(git -c color.ui=never diff --cached --no-ext-diff | sed -n "1,${diff_lines}p")
 \`\`\`"
+
+        # Add note if diff was truncated
+        if [ "$total_lines" -gt "$diff_lines" ]; then
+            diff_section="${diff_section}
+
+**Note**: Diff truncated (showing ${diff_lines} of ${total_lines} lines)."
+        fi
     fi
 
     local context_part=""
@@ -109,14 +119,7 @@ _try_claude() {
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 0)
 
-    local result
-    result=$(claude -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)" 2>/dev/null)
-
-    if [ -z "$result" ] || [ "$result" = "null" ]; then
-        return 1
-    fi
-
-    echo "$result"
+    claude -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)" 2>/dev/null
 }
 
 # Try Gemini CLI
@@ -132,16 +135,8 @@ _try_gemini() {
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 200)
 
-    local result
-    result=$(printf "%s" "$prompt" | gemini 2>/dev/null)
-
-    # gemini cli 0.7.0 --allowed-tools has issues in non-interactive mode, so using a workaround above
-    # result=$(printf "%s" "$prompt" | gemini --allowed-tools "read_file,ShellTool(git status),ShellTool(git diff)" 2>/dev/null)
-    if [ -z "$result" ] || [ "$result" = "null" ]; then
-        return 1
-    fi
-
-    echo "$result"
+    # gemini cli 0.7.0 --allowed-tools has issues in non-interactive mode, so using diff directly
+    printf "%s" "$prompt" | gemini 2>/dev/null
 }
 
 # Try OpenAI API
@@ -157,22 +152,13 @@ _try_openai() {
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 100)
 
-    local result
-    result=$(
-        jq -n --arg prompt "$prompt" \
-           '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}' \
-        | curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OPENAI_API_KEY}" \
-            -d @- \
-        | jq -r '.choices[0].message.content' 2>/dev/null
-    )
-
-    if [ -z "$result" ] || [ "$result" = "null" ]; then
-        return 1
-    fi
-
-    echo "$result"
+    jq -n --arg prompt "$prompt" \
+       '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}' \
+    | curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${OPENAI_API_KEY}" \
+        -d @- \
+    | jq -r '.choices[0].message.content' 2>/dev/null
 }
 
 # Function to generate AI commit message from git diff
@@ -192,10 +178,21 @@ _generate_ai_commit_message() {
         return 1
     fi
 
-    # Clean up response: remove whitespace, quotes, backticks from start/end
-    local strip_chars="[[:space:]\"'\`]"
-    ai_message=$(echo "$ai_message" | sed -E -e "s/^${strip_chars}+//" -e "s/${strip_chars}+$//")
+    # Check for empty or error response
+    if [ -z "$ai_message" ] || [ "$ai_message" = "null" ] || [[ "$ai_message" == error* ]]; then
+        echo "⚠️ AI service returned invalid result: $ai_message" >&2
+        return 1
+    fi
 
+    # Clean up response: remove whitespace, quotes, backticks from start/end
+    ai_message=$(echo "$ai_message" | sed -E "
+        s/^\`\`\`[a-z]*//;
+        s/\`\`\`$//;
+        s/^[[:space:]]+//;
+        s/[[:space:]]+$//;
+        s/^[\"'\`]+//;
+        s/[\"'\`]+$//;
+    ")
     if [ -z "$ai_message" ]; then
         echo "⚠️ AI generation produced empty result." >&2
         return 1

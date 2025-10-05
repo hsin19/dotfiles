@@ -1,5 +1,4 @@
 {
-  "selectedAuthType": "oauth-personal",
   "mcpServers": {
     "context7": {
       "command": "npx",
@@ -16,6 +15,11 @@
     },
     "atlassian": {
       "url": "https://mcp.atlassian.com/v1/sse"
+    }
+  },
+  "security": {
+    "auth": {
+      "selectedType": "oauth-personal"
     }
   }
 }
