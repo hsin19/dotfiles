@@ -31,10 +31,25 @@ _add_jira_ticket_to_commit() {
 # Build AI prompt for commit message generation
 _build_commit_prompt() {
     local custom_context="$1"
+    local diff_lines="${2:-100}"  # Default to 100 lines if not specified
 
-    # Get first 100 lines of staged changes
-    local diff_content
-    diff_content=$(git -c color.ui=never diff --cached --no-ext-diff | sed -n '1,100p')
+    # Get staged changes diff
+    local diff_section
+    if [ "$diff_lines" -eq 0 ]; then
+        diff_section="## Instructions
+
+Use the following git commands to retrieve staged changes information:
+- \`git status\` - to see which files are staged
+- \`git diff --cached --no-ext-diff\` - to see the detailed changes
+
+Analyze the changes and generate an appropriate commit message."
+    else
+        diff_section="## Git diff
+
+\`\`\`diff
+$(git -c color.ui=never diff --cached --no-ext-diff | sed -n "1,${diff_lines}p")
+\`\`\`"
+    fi
 
     local context_part=""
     # Add custom context if it contains non-whitespace characters
@@ -70,15 +85,14 @@ You are a git commit message generator. Generate a commit message following the 
 - Use bullet points with "-"
 - Maximum 100 characters per line
 - Explain WHAT and WHY, not HOW
-- Be objective and concise${context_part}
-
+- Be objective and concise
+${context_part}
 ## Critical Requirements
 1. Output ONLY the commit message
 2. NO additional explanations, questions, or comments
 3. NO formatting delimiters like \`\`\` or quotes
 
-Git diff:
-$diff_content
+$diff_section
 EOF
 }
 
@@ -93,10 +107,10 @@ _try_claude() {
     echo "ℹ️  Using Claude Code CLI for AI generation..." >&2
 
     local prompt
-    prompt=$(_build_commit_prompt "$custom_context")
+    prompt=$(_build_commit_prompt "$custom_context" 0)
 
     local result
-    result=$(claude -p "$prompt" 2>/dev/null)
+    result=$(claude -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)" 2>/dev/null)
 
     if [ -z "$result" ] || [ "$result" = "null" ]; then
         return 1
@@ -116,11 +130,13 @@ _try_gemini() {
     echo "ℹ️  Using Gemini CLI for AI generation..." >&2
 
     local prompt
-    prompt=$(_build_commit_prompt "$custom_context")
+    prompt=$(_build_commit_prompt "$custom_context" 200)
 
     local result
     result=$(printf "%s" "$prompt" | gemini 2>/dev/null)
 
+    # gemini cli 0.7.0 --allowed-tools has issues in non-interactive mode, so using a workaround above
+    # result=$(printf "%s" "$prompt" | gemini --allowed-tools "read_file,ShellTool(git status),ShellTool(git diff)" 2>/dev/null)
     if [ -z "$result" ] || [ "$result" = "null" ]; then
         return 1
     fi
@@ -139,7 +155,7 @@ _try_openai() {
     echo "ℹ️  Using OpenAI API (GPT-5 mini) for AI generation..." >&2
 
     local prompt
-    prompt=$(_build_commit_prompt "$custom_context")
+    prompt=$(_build_commit_prompt "$custom_context" 100)
 
     local result
     result=$(
