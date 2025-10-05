@@ -3,12 +3,10 @@
 # Extract Jira ticket from branch name
 _extract_jira_ticket() {
     local branch_name
-    local branch_name_no_prefix
 
     branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-    # Remove prefix before first slash (e.g., feature/ABC-123 -> ABC-123)
-    branch_name_no_prefix="${branch_name#*/}"
-    echo "$branch_name_no_prefix" | grep -oE '^[A-Z]{1,5}-[0-9]+' || echo ""
+    # Match Jira ticket at start or after slash (e.g., ABC-123 or feature/ABC-123)
+    echo "$branch_name" | grep -oE '(^|/)[A-Z]{1,5}-[0-9]+' | sed 's|^/||' || echo ""
 }
 
 # Add Jira ticket to commit message
@@ -16,10 +14,7 @@ _add_jira_ticket_to_commit() {
     local original_msg="$1"
     local jira_ticket
 
-    if ! jira_ticket=$(_extract_jira_ticket); then
-        echo "Error: Failed to extract Jira ticket" >&2
-        return 1
-    fi
+    jira_ticket=$(_extract_jira_ticket);
 
     if [ -n "$jira_ticket" ]; then
         if [[ $original_msg != *"$jira_ticket"* ]]; then
