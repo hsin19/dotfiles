@@ -9,9 +9,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source library modules
+source "$SCRIPT_DIR/lib/env-loader.sh"
 source "$SCRIPT_DIR/lib/error-handler.sh"
 source "$SCRIPT_DIR/lib/git-utils.sh"
 source "$SCRIPT_DIR/lib/git-commit.sh"
+
+# Load environment variables
+load_env "$SCRIPT_DIR"
 
 # Main function
 main() {

@@ -9,16 +9,8 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-_load_env() {
-    local env_file="$SCRIPT_DIR/.env"
-    
-    if [ -f "$env_file" ]; then
-        echo "Loading configuration from .env file..."
-        source "$env_file"
-    else
-        echo "⚠️ No .env file found, using defaults"
-    fi
-}
+# Source library modules
+source "$SCRIPT_DIR/lib/env-loader.sh"
 
 _install_homebrew() {
     if ! command -v brew &>/dev/null; then
@@ -193,8 +185,8 @@ _setup_npm_packages() {
 
 main() {
     echo "Starting development environment setup..."
-    
-    _load_env
+
+    load_env "$SCRIPT_DIR"
     _install_brew_packages
     _setup_zsh
     _setup_git_identities

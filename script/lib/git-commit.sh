@@ -166,22 +166,41 @@ _try_openai() {
 _generate_ai_commit_message() {
     local custom_context="$1"
 
+    # Get LLM service priority order from env var, default to claude,gemini,openai
+    local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-claude,gemini,openai}"
+
     # Try LLM services in priority order
     local ai_message
-    if ai_message=$(_try_claude "$custom_context"); then
-        :
-    elif ai_message=$(_try_gemini "$custom_context"); then
-        :
-    elif ai_message=$(_try_openai "$custom_context"); then
-        :
-    else
-        echo "⚠️ No AI service available (claude CLI, gemini CLI or OpenAI API key)." >&2
-        return 1
-    fi
+    local service
+    IFS=',' read -ra services <<< "$llm_priority"
+
+    for service in "${services[@]}"; do
+        service=$(echo "$service" | xargs) # trim whitespace
+        case "$service" in
+            claude)
+                if ai_message=$(_try_claude "$custom_context"); then
+                    break
+                fi
+                ;;
+            gemini)
+                if ai_message=$(_try_gemini "$custom_context"); then
+                    break
+                fi
+                ;;
+            openai)
+                if ai_message=$(_try_openai "$custom_context"); then
+                    break
+                fi
+                ;;
+            *)
+                echo "⚠️ Unknown LLM service: $service" >&2
+                ;;
+        esac
+    done
 
     # Check for empty or error response
     if [ -z "$ai_message" ] || [ "$ai_message" = "null" ] || [[ "$ai_message" == error* ]]; then
-        echo "⚠️ AI service returned invalid result: $ai_message" >&2
+        echo "⚠️ AI generation failed: No service available or invalid result" >&2
         return 1
     fi
 
