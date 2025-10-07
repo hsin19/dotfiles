@@ -68,11 +68,14 @@ $(git -c color.ui=never diff --cached --no-ext-diff | sed -n "1,${diff_lines}p")
 
 ### User's Focus
 **IMPORTANT**: Pay special attention to the following when crafting the commit message:
-- $custom_context"
+- $custom_context
+"
     fi
 
     cat <<EOF
 You are a git commit message generator. Generate a commit message following the Conventional Commits specification.
+
+$diff_section
 
 ## Output Format
 
@@ -101,8 +104,6 @@ ${context_part}
 1. Output ONLY the commit message
 2. NO additional explanations, questions, or comments
 3. NO formatting delimiters like \`\`\` or quotes
-
-$diff_section
 EOF
 }
 
@@ -133,7 +134,7 @@ _try_gemini() {
     echo "ℹ️  Using Gemini CLI for AI generation..." >&2
 
     local prompt
-    prompt=$(_build_commit_prompt "$custom_context" 200)
+    prompt=$(_build_commit_prompt "$custom_context" 4000)
 
     # gemini cli 0.7.0 --allowed-tools has issues in non-interactive mode, so using diff directly
     printf "%s" "$prompt" | gemini 2>/dev/null
@@ -150,7 +151,7 @@ _try_openai() {
     echo "ℹ️  Using OpenAI API (GPT-5 mini) for AI generation..." >&2
 
     local prompt
-    prompt=$(_build_commit_prompt "$custom_context" 100)
+    prompt=$(_build_commit_prompt "$custom_context" 500)
 
     jq -n --arg prompt "$prompt" \
        '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}' \
