@@ -87,6 +87,7 @@ $diff_section
 
 ### Subject Line
 - Start with type: feat, fix, docs, style, refactor, test, chore, perf, build, ci, revert
+- If the diff changes runtime logic/behavior, pick **feat** for new capabilities or **fix** for bug corrections
 - Include scope if applicable (component/file affected)
 - Use imperative mood (e.g., 'add' not 'added')
 - No capitalization of first letter after colon
