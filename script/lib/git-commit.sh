@@ -124,6 +124,49 @@ _try_claude() {
     claude -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)" 2>/dev/null
 }
 
+# Try Copilot CLI
+_try_copilot() {
+    local custom_context="$1"
+
+    if ! command -v copilot >/dev/null 2>&1; then
+        return 1
+    fi
+
+    echo "ℹ️  Using Copilot CLI for AI generation..." >&2
+
+    local prompt
+    prompt=$(_build_commit_prompt "$custom_context" 0)
+
+    # Copilot CLI outputs blocks: ✓ for tool executions, ● for text responses
+    # Extract content after the last ● marker (the final commit message)
+    copilot -p "$prompt" --allow-tool "shell(git status:*)" --allow-tool "shell(git diff:*)" --no-color 2>/dev/null \
+    | awk '
+        function process_previous_block() {
+            if (current_block ~ /^●/) {
+                last_dot_block = current_block;
+            }
+        }
+        /^[^ ]/ {
+            process_previous_block();
+            current_block = $0;
+            next;
+        }
+        {
+            if (current_block) {
+                current_block = current_block "\n" $0;
+            }
+        }
+        END {
+            process_previous_block();
+            if (last_dot_block) {
+                sub(/^● /, "", last_dot_block);
+                gsub(/\n  /, "\n", last_dot_block);
+                printf "%s", last_dot_block;
+            }
+        }
+    '
+}
+
 # Try Gemini CLI
 _try_gemini() {
     local custom_context="$1"
@@ -167,8 +210,8 @@ _try_openai() {
 _generate_ai_commit_message() {
     local custom_context="$1"
 
-    # Get LLM service priority order from env var, default to claude,gemini,openai
-    local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-claude,gemini,openai}"
+    # Get LLM service priority order from env var, default to claude,gemini,copilot,openai
+    local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-claude,gemini,copilot,openai}"
 
     # Try LLM services in priority order
     local ai_message
@@ -180,6 +223,11 @@ _generate_ai_commit_message() {
         case "$service" in
             claude)
                 if ai_message=$(_try_claude "$custom_context"); then
+                    break
+                fi
+                ;;
+            copilot)
+                if ai_message=$(_try_copilot "$custom_context"); then
                     break
                 fi
                 ;;

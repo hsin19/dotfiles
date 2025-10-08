@@ -39,7 +39,7 @@ _show_usage() {
     echo "  OPENAI_API_KEY    OpenAI API key for GPT-based generation"
     echo ""
     echo "REQUIREMENTS:"
-    echo "  - For AI: claude CLI, gemini CLI, or OpenAI API key"
+    echo "  - For AI: claude CLI, gemini CLI, Copilot CLI, or OpenAI API key"
     echo "  - For OpenAI: curl and jq commands"
 }
 
