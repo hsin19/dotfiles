@@ -31,7 +31,13 @@ main() {
     if [ -n "$commit_source" ] && [ "$commit_source" != "message" ]; then
         exit 0
     fi
-    
+
+    # Skip amend commits that pass a new message (-m/--amend sets commit_source=message with sha1)
+    if [ "$commit_source" = "message" ] && [ -n "$sha1" ]; then
+        echo "Info: skipping hook for amend" >&2
+        exit 0
+    fi
+
     if [ -z "$commit_msg_file" ]; then
         echo "Error: Missing commit message file parameter" >&2
         exit 1
