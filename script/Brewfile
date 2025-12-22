@@ -1,4 +1,3 @@
-tap "th-ch/youtube-music"
 # Fast and simple Node.js version manager
 brew "fnm"
 # Distributed revision control system
@@ -32,5 +31,3 @@ cask "rider"
 cask "snipaste"
 # Open-source code editor
 cask "visual-studio-code"
-# YouTube Music Desktop App
-cask "youtube-music"
