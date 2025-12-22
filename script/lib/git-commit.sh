@@ -134,35 +134,56 @@ _try_copilot() {
 
     echo "ℹ️  Using Copilot CLI for AI generation..." >&2
 
-    local prompt
-    prompt=$(_build_commit_prompt "$custom_context" 0)
+    # Wrap context with explicit output markers and later extract between them
+    local marker_start="<<<COMMIT_MESSAGE_START>>>"
+    local marker_end="<<<COMMIT_MESSAGE_END>>>"
 
-    # Copilot CLI outputs blocks: ✓ for tool executions, ● for text responses
-    # Extract content after the last ● marker (the final commit message)
+    # Augment custom context to instruct the model to wrap its final output
+    local wrapped_context
+    wrapped_context=$(cat <<EOF
+$custom_context
+
+IMPORTANT: Output only the final commit message wrapped between the following markers:
+- Start marker: $marker_start
+- End marker: $marker_end
+Do not include any other text outside the markers.
+EOF
+)
+
+    local prompt
+    prompt=$(_build_commit_prompt "$wrapped_context" 0)
+
+    # Extract only the content between markers from the entire output
     copilot -p "$prompt" --allow-tool "shell(git status:*)" --allow-tool "shell(git diff:*)" --no-color 2>/dev/null \
-    | awk '
-        function process_previous_block() {
-            if (current_block ~ /^●/) {
-                last_dot_block = current_block;
-            }
-        }
-        /^[^ ]/ {
-            process_previous_block();
-            current_block = $0;
-            next;
-        }
+    | awk -v start="${marker_start}" -v end="${marker_end}" '
+        function trim(s) { sub(/^\s+/, "", s); sub(/\s+$/, "", s); return s }
         {
-            if (current_block) {
-                current_block = current_block "\n" $0;
+            line = $0
+            # If start marker appears on this line, begin capture and drop text before it
+            if (!capturing) {
+                pos = index(line, start)
+                if (pos) {
+                    capturing = 1
+                    line = substr(line, pos + length(start))
+                } else {
+                    next
+                }
+            }
+            # If end marker appears on this line, append up to it and finish
+            posEnd = index(line, end)
+            if (capturing && posEnd) {
+                piece = substr(line, 1, posEnd - 1)
+                buffer = buffer (buffer ? "\n" : "") piece
+                capturing = 0
+                done = 1
+                next
+            }
+            if (capturing) {
+                buffer = buffer (buffer ? "\n" : "") line
             }
         }
         END {
-            process_previous_block();
-            if (last_dot_block) {
-                sub(/^● /, "", last_dot_block);
-                gsub(/\n  /, "\n", last_dot_block);
-                printf "%s", last_dot_block;
-            }
+            printf "%s", trim(buffer)
         }
     '
 }
