@@ -108,15 +108,43 @@ ${context_part}
 EOF
 }
 
-# Try Claude Code CLI
+# Try Claude Code CLI (or CCR if configured)
 _try_claude() {
     local custom_context="$1"
 
-    if ! command -v claude >/dev/null 2>&1; then
+    # Check if CCR is enabled via env var or git config
+    local use_ccr="${GIT_COMMIT_USE_CCR:-}"
+    if [ -z "$use_ccr" ]; then
+        use_ccr=$(git config --get dotfiles.ai.use_ccr 2>/dev/null || echo "false")
+    fi
+
+    local claude_cmd=""
+    local tool_name=""
+
+    # If CCR is enabled/requested
+    if [[ "$use_ccr" == "true" || "$use_ccr" == "1" || "$use_ccr" == "yes" ]]; then
+        if command -v ccr >/dev/null 2>&1; then
+            claude_cmd="ccr code"
+            tool_name="CCR (Claude Code Router)"
+        else
+            return 1
+        fi
+    fi
+
+    if [ -z "$claude_cmd" ]; then
+        if command -v claude >/dev/null 2>&1; then
+            claude_cmd="claude"
+            tool_name="Claude Code CLI"
+        else
+            return 1
+        fi
+    fi
+
+    if ! command -v "$claude_cmd" >/dev/null 2>&1; then
         return 1
     fi
 
-    echo "ℹ️  Using Claude Code CLI for AI generation..." >&2
+    echo "ℹ️  Using $tool_name for AI generation..." >&2
 
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 0)
