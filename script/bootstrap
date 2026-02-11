@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-# dotfiles 函數（替代 alias）
+# dotfiles function (replaces alias)
 dotfiles() {
     /usr/bin/git --git-dir="$HOME/.dotfiles/" --work-tree="$HOME" "$@"
 }
@@ -18,7 +18,7 @@ _install_homebrew() {
             echo "✅ Homebrew installed successfully"
             
             if [[ $(uname -m) == "arm64" ]]; then
-                # 讓後續步驟能找到 brew
+                # let the following steps find brew
                 export PATH="/opt/homebrew/bin:$PATH"
             fi
         else
@@ -149,14 +149,40 @@ _checkout_dotfiles() {
 main() {
     echo "Starting dotfiles bootstrap..."
     
-    # 執行安裝步驟
     _install_homebrew
     _install_git
     _clone_dotfiles
     _checkout_dotfiles
 
     echo "✅ Dotfiles bootstrap completed successfully!"
-    echo "You may need to restart your terminal to see all changes."
+    
+    # Check for -y or --yes argument
+    local run_setup=false
+    for arg in "$@"; do
+        if [[ "$arg" == "-y" || "$arg" == "--yes" ]]; then
+            run_setup=true
+            break
+        fi
+    done
+
+    # If setup not requested, ask the user
+    if [ "$run_setup" = false ]; then
+        echo ""
+        read -p "Do you want to run the full setup script now? (y/N) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            run_setup=true
+        fi
+    fi
+
+    if [ "$run_setup" = true ]; then
+        echo "Running setup script..."
+        if [ -f "$HOME/script/setup" ]; then
+            bash "$HOME/script/setup"
+        else
+            echo "❌ Setup script not found at $HOME/script/setup"
+        fi
+    fi
 }
 
 main "$@"

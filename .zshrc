@@ -45,7 +45,7 @@ fi
 
 # Dotfiles Management (Bare Repository Mode)
 alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
-alias dotfilesup="$HOME/script/bootstrap && $HOME/script/setup"
+alias dotfilesup="$HOME/script/bootstrap -y"
 
 # Docker to Podman
 if command -v podman >/dev/null 2>&1; then
