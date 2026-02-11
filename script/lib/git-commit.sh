@@ -115,12 +115,13 @@ _exec_cmd_with_stderr() {
     local err_file
     err_file=$(mktemp)
 
-    if "$@" 2>"$err_file"; then
+    if output=$("$@" 2>"$err_file"); then
         rm -f "$err_file"
-        return 0
+        printf '%s\n' "$output"
     else
         cat "$err_file" >&2
         rm -f "$err_file"
+        printf '%s\n' "$output" >&2
         return 1
     fi
 }
