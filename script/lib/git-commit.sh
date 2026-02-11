@@ -260,7 +260,16 @@ _generate_ai_commit_message() {
     local custom_context="$1"
 
     # Get LLM service priority order from env var, default to claude,gemini,copilot,openai
-    local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-claude,gemini,copilot,openai}"
+    local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-}"
+    
+    if [ -z "$llm_priority" ]; then
+        llm_priority=$(git config --get dotfiles.ai.llm_priority 2>/dev/null)
+    fi
+    
+    # Default if still empty
+    if [ -z "$llm_priority" ]; then
+        llm_priority="claude,gemini,copilot,openai"
+    fi
 
     # Try LLM services in priority order
     local ai_message
