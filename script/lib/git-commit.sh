@@ -108,6 +108,21 @@ ${context_part}
 EOF
 }
 
+# Execute command and capture/display stderr on failure
+_exec_cmd_with_stderr() {
+    local err_file
+    err_file=$(mktemp)
+
+    if "$@" 2>"$err_file"; then
+        rm -f "$err_file"
+        return 0
+    else
+        cat "$err_file" >&2
+        rm -f "$err_file"
+        return 1
+    fi
+}
+
 # Try Claude Code CLI (or CCR if configured)
 _try_claude() {
     local custom_context="$1"
@@ -149,7 +164,7 @@ _try_claude() {
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 0)
 
-    claude -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)" 2>/dev/null
+    _exec_cmd_with_stderr "$claude_cmd" -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)"
 }
 
 # Try Copilot CLI
@@ -182,8 +197,13 @@ EOF
     prompt=$(_build_commit_prompt "$wrapped_context" 0)
 
     # Extract only the content between markers from the entire output
-    copilot -p "$prompt" --allow-tool "shell(git status:*)" --allow-tool "shell(git diff:*)" --no-color 2>/dev/null \
-    | awk -v start="${marker_start}" -v end="${marker_end}" '
+    local raw_output
+
+    if ! raw_output=$(_exec_cmd_with_stderr copilot -p "$prompt" --allow-tool "shell(git status:*)" --allow-tool "shell(git diff:*)" --no-color); then
+        return 1
+    fi
+
+    printf "%s\n" "$raw_output" | awk -v start="${marker_start}" -v end="${marker_end}" '
         function trim(s) { sub(/^\s+/, "", s); sub(/\s+$/, "", s); return s }
         {
             line = $0
@@ -230,7 +250,7 @@ _try_gemini() {
     prompt=$(_build_commit_prompt "$custom_context" 4000)
 
     # gemini cli 0.7.0 --allowed-tools has issues in non-interactive mode, so using diff directly
-    printf "%s" "$prompt" | gemini 2>/dev/null
+    printf "%s" "$prompt" | _exec_cmd_with_stderr gemini
 }
 
 # Try OpenAI API
@@ -245,14 +265,19 @@ _try_openai() {
 
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 500)
+    
+    local payload
+    payload=$(jq -n --arg prompt "$prompt" '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}')
 
-    jq -n --arg prompt "$prompt" \
-       '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}' \
-    | curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+    local response
+    if ! response=$(_exec_cmd_with_stderr curl -s -f -X POST "https://api.openai.com/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${OPENAI_API_KEY}" \
-        -d @- \
-    | jq -r '.choices[0].message.content' 2>/dev/null
+        -d "$payload"); then
+        return 1
+    fi
+
+    echo "$response" | jq -r '.choices[0].message.content'
 }
 
 # Function to generate AI commit message from git diff
