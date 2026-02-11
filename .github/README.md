@@ -59,6 +59,8 @@ This project includes several convenient Git Aliases and scripts:
 ### Update to latest configuration
 
 ```sh
+dotfilesup
+# or
 $HOME/script/bootstrap
 ```
 
