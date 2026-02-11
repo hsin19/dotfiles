@@ -126,48 +126,36 @@ _exec_cmd_with_stderr() {
     fi
 }
 
-# Try Claude Code CLI (or CCR if configured)
+# Try Claude Code CLI
 _try_claude() {
     local custom_context="$1"
 
-    # Check if CCR is enabled via env var or git config
-    local use_ccr="${GIT_COMMIT_USE_CCR:-}"
-    if [ -z "$use_ccr" ]; then
-        use_ccr=$(git config --get dotfiles.ai.use-ccr 2>/dev/null || echo "false")
-    fi
-
-    local claude_cmd=""
-    local tool_name=""
-
-    # If CCR is enabled/requested
-    if [[ "$use_ccr" == "true" || "$use_ccr" == "1" || "$use_ccr" == "yes" ]]; then
-        if command -v ccr >/dev/null 2>&1; then
-            claude_cmd="ccr code"
-            tool_name="CCR (Claude Code Router)"
-        else
-            return 1
-        fi
-    fi
-
-    if [ -z "$claude_cmd" ]; then
-        if command -v claude >/dev/null 2>&1; then
-            claude_cmd="claude"
-            tool_name="Claude Code CLI"
-        else
-            return 1
-        fi
-    fi
-
-    if ! command -v "$claude_cmd" >/dev/null 2>&1; then
+    if ! command -v claude >/dev/null 2>&1; then
         return 1
     fi
 
-    echo "ℹ️  Using $tool_name for AI generation..." >&2
+    echo "ℹ️  Using Claude Code CLI for AI generation..." >&2
 
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 0)
 
-    _exec_cmd_with_stderr "$claude_cmd" -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)"
+    _exec_cmd_with_stderr claude -p "$prompt" --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)"
+}
+
+# Try CCR (Claude Code Router)
+_try_ccr() {
+    local custom_context="$1"
+
+    if ! command -v ccr >/dev/null 2>&1; then
+        return 1
+    fi
+
+    echo "ℹ️  Using CCR (Claude Code Router) for AI generation..." >&2
+
+    local prompt
+    prompt=$(_build_commit_prompt "$custom_context" 0)
+
+    printf "%s" "$prompt" | _exec_cmd_with_stderr ccr code -p - --allowedTools "Read" "Bash(git status:*)" "Bash(git diff:*)"
 }
 
 # Try Copilot CLI
@@ -287,7 +275,7 @@ _try_openai() {
 _generate_ai_commit_message() {
     local custom_context="$1"
 
-    # Get LLM service priority order from env var, default to claude,gemini,copilot,openai
+    # Get LLM service priority order from env var, default to claude,ccr,gemini,copilot,openai
     local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-}"
     
     if [ -z "$llm_priority" ]; then
@@ -296,7 +284,7 @@ _generate_ai_commit_message() {
     
     # Default if still empty
     if [ -z "$llm_priority" ]; then
-        llm_priority="claude,gemini,copilot,openai"
+        llm_priority="claude,ccr,gemini,copilot,openai"
     fi
 
     # Try LLM services in priority order
@@ -309,6 +297,11 @@ _generate_ai_commit_message() {
         case "$service" in
             claude)
                 if ai_message=$(_try_claude "$custom_context"); then
+                    break
+                fi
+                ;;
+            ccr)
+                if ai_message=$(_try_ccr "$custom_context"); then
                     break
                 fi
                 ;;
@@ -406,7 +399,7 @@ generate_commit_message() {
             echo "❌ AI generation failed, using fallback" >&2
             commit_message=$(_generate_fallback_commit_message)
         else
-            echo "✅ AI generated message: $commit_message" >&2
+            echo "✅ AI generated message successfully" >&2
         fi
     elif [[ "$commit_message" =~ ^#.* ]]; then
         # Message starts with #, use as AI prompt
