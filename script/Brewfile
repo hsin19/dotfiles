@@ -16,6 +16,8 @@ brew "uv"
 brew "zoxide"
 # UNIX shell (command interpreter)
 brew "zsh"
+# AI Coding Agent IDE
+cask "antigravity"
 cask "font-fira-code"
 # GIT client
 cask "fork"
