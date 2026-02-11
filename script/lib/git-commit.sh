@@ -132,7 +132,7 @@ _try_claude() {
     # Check if CCR is enabled via env var or git config
     local use_ccr="${GIT_COMMIT_USE_CCR:-}"
     if [ -z "$use_ccr" ]; then
-        use_ccr=$(git config --get dotfiles.ai.use_ccr 2>/dev/null || echo "false")
+        use_ccr=$(git config --get dotfiles.ai.use-ccr 2>/dev/null || echo "false")
     fi
 
     local claude_cmd=""
@@ -290,7 +290,7 @@ _generate_ai_commit_message() {
     local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-}"
     
     if [ -z "$llm_priority" ]; then
-        llm_priority=$(git config --get dotfiles.ai.llm_priority 2>/dev/null)
+        llm_priority=$(git config --get dotfiles.ai.llm-priority 2>/dev/null)
     fi
     
     # Default if still empty
