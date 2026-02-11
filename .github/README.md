@@ -46,7 +46,7 @@ You may need to configure .env for:
 - API keys (e.g., OpenAI)
 - Personal preferences
 
-Copy the [sample file](script/.env.sample) and fill in the values:
+Copy the [sample file](../script/.env.sample) and fill in the values:
 
 ```sh
 cp script/.env.sample script/.env
