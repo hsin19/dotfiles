@@ -112,7 +112,22 @@ main() {
     
     #  Change default shell to zsh (based on login shell, not just $SHELL)
     local login_shell
-    login_shell="$(getent passwd "$USER" | cut -d: -f7 || true)"
+    local username=""
+
+    # Derive username safely under `set -u`
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        username="${SUDO_USER}"
+    elif [[ -n "${USER:-}" ]]; then
+        username="${USER}"
+    else
+        username="$(id -un 2>/dev/null || true)"
+    fi
+
+    if [[ -n "${username:-}" ]]; then
+        login_shell="$(getent passwd "${username}" | cut -d: -f7 || true)"
+    else
+        login_shell=""
+    fi
     if [[ -z "${login_shell:-}" ]]; then
         login_shell="${SHELL:-}"
     fi
