@@ -11,9 +11,11 @@ graph TB
     subgraph "Bootstrap Phase"
         A[bootstrap] --> B{Check git}
         B -->|Found| D
-        B -->|Not Found| C{Check apt}
-        C -->|Found| E[apt install git]
-        E --> D[Clone dotfiles repo]
+        B -->|Not Found| C{Detect OS}
+        C -->|macOS| E1[xcode-select --install]
+        C -->|Linux| E2[apt install git]
+        E1 --> D[Clone dotfiles repo]
+        E2 --> D
         D --> F[Checkout to $HOME]
         F --> G[Run setup]
     end
@@ -36,7 +38,7 @@ graph TB
 
 | File | Purpose |
 |------|---------|
-| [`bootstrap`](./bootstrap) | 🚀 Entry point - clones dotfiles and installs git (via apt if missing) |
+| [`bootstrap`](./bootstrap) | 🚀 Entry point - clones dotfiles and installs git (via Xcode CLT on macOS, apt on Ubuntu) |
 | [`setup`](./setup) | ⚙️ Unified entry point - detects OS and runs platform-specific setup + shared config |
 | [`setup-macos`](./setup-macos) | 🍎 macOS - installs Homebrew and packages from Brewfile |
 | [`setup-ubuntu`](./setup-ubuntu) | 🐧 Ubuntu - installs apt packages and modern CLI tools |

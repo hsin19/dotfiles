@@ -186,6 +186,14 @@ main() {
         export PATH="/opt/homebrew/bin:$PATH"
     fi
     
+    # Ensure fnm is on PATH and initialized after platform setup (Ubuntu)
+    if is_ubuntu; then
+        export PATH="$HOME/.local/share/fnm:$PATH"
+        if command -v fnm &>/dev/null; then
+            eval "$(fnm env)"
+        fi
+    fi
+    
     echo ""
     echo "🔧 Running cross-platform setup..."
     echo ""

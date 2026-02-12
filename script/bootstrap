@@ -11,7 +11,7 @@ dotfiles() {
     git --git-dir="$HOME/.dotfiles/" --work-tree="$HOME" "$@"
 }
 
-# Install git if needed (Ubuntu only, macOS has built-in git)
+# Install git if needed
 _install_git() {
     # Check if git is already available
     if command -v git &>/dev/null; then
@@ -19,7 +19,22 @@ _install_git() {
         return 0
     fi
     
-    # Install git using apt
+    # macOS: install Xcode Command Line Tools (includes git)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "Installing Xcode Command Line Tools (includes Git)..."
+        xcode-select --install 2>/dev/null || true
+        echo "⏳ Please complete the Xcode CLT installation dialog, then press Enter..."
+        read -r < /dev/tty
+        if command -v git &>/dev/null; then
+            echo "✅ Git installed via Xcode CLT"
+            return 0
+        else
+            echo "❌ Git still not found. Please install Xcode CLT manually and try again."
+            exit 1
+        fi
+    fi
+    
+    # Linux: install git using apt
     if command -v apt-get &>/dev/null; then
         echo "Installing Git..."
         sudo apt-get update

@@ -18,6 +18,9 @@ _install_apt_packages() {
         build-essential
         curl
         wget
+        gnupg
+        ca-certificates
+        git
         jq
         
         # Languages and runtimes
@@ -57,6 +60,8 @@ _install_modern_cli_tools() {
     if ! command -v fnm &>/dev/null; then
         echo "Installing fnm..."
         curl -fsSL https://fnm.vercel.app/install | bash
+        # Add fnm to PATH for current session
+        export PATH="$HOME/.local/share/fnm:$PATH"
     else
         echo "✅ fnm already installed"
     fi
@@ -106,9 +111,9 @@ main() {
     _install_modern_cli_tools
     
     #  Change default shell to zsh
-    if [[ "$SHELL" != *"zsh"* ]]; then
+    if [[ "${SHELL:-}" != *"zsh"* ]]; then
         echo "Changing default shell to zsh..."
-        chsh -s "$(which zsh)"
+        chsh -s "$(command -v zsh)"
         echo "⚠️  You need to log out and log back in for the shell change to take effect"
     fi
     
