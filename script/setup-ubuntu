@@ -110,15 +110,21 @@ main() {
     _install_apt_packages
     _install_modern_cli_tools
     
-    #  Change default shell to zsh
-    if [[ "${SHELL:-}" != *"zsh"* ]]; then
+    #  Change default shell to zsh (based on login shell, not just $SHELL)
+    local login_shell
+    login_shell="$(getent passwd "$USER" | cut -d: -f7 || true)"
+    if [[ -z "${login_shell:-}" ]]; then
+        login_shell="${SHELL:-}"
+    fi
+
+    if [[ "${login_shell:-}" != *"zsh"* ]]; then
         if [[ -t 0 ]]; then
             echo "Changing default shell to zsh..."
             chsh -s "$(command -v zsh)"
             echo "⚠️  You need to log out and log back in for the shell change to take effect"
         else
             echo "⚠️  Non-interactive session detected. Skipping shell change."
-            echo "To change your default shell to zsh, run: chsh -s $(command -v zsh)"
+            echo "To change your default shell to zsh, run: chsh -s \"\$(command -v zsh)\""
         fi
     fi
     
