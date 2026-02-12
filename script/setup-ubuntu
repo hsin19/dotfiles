@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# Ubuntu-specific setup script
+# Usage: Called by setup script, do not run directly
+# Installs packages via apt and other Ubuntu-specific tools
+
+set -euo pipefail
+
+echo "🐧 Ubuntu Package Installation"
+echo "==============================="
+
+# Install APT packages
+_install_apt_packages() {
+    echo "📦 Installing APT packages..."
+    
+    local packages=(
+        # Build essentials
+        build-essential
+        curl
+        wget
+        jq
+        
+        # Languages and runtimes
+        golang-go
+        
+        # Shell
+        zsh
+        
+        # System monitoring
+        btop
+    )
+    
+    sudo apt update
+    sudo apt install -y "${packages[@]}"
+    
+    echo "✅ APT packages installed"
+}
+
+# Install modern CLI tools
+_install_modern_cli_tools() {
+    echo "🔧 Installing modern CLI tools..."
+    
+    # Eza (modern ls)
+    if ! command -v eza &>/dev/null; then
+        echo "Installing eza..."
+        sudo mkdir -p /etc/apt/keyrings
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
+        sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+        sudo apt update
+        sudo apt install -y eza
+    else
+        echo "✅ eza already installed"
+    fi
+    
+    # FNM (Fast Node Manager)
+    if ! command -v fnm &>/dev/null; then
+        echo "Installing fnm..."
+        curl -fsSL https://fnm.vercel.app/install | bash
+    else
+        echo "✅ fnm already installed"
+    fi
+    
+    # Install Node.js LTS via fnm if not already installed
+    if command -v fnm &>/dev/null; then
+        eval "$(fnm env)"
+        if ! command -v node &>/dev/null; then
+            echo "Installing Node.js LTS via fnm..."
+            fnm install --lts
+            fnm default lts-latest
+        else
+            echo "✅ Node.js already installed ($(node --version))"
+        fi
+    fi
+    
+    # Go Task
+    if ! command -v task &>/dev/null; then
+        echo "Installing go-task..."
+        mkdir -p ~/.local/bin
+        sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+    else
+        echo "✅ go-task already installed"
+    fi
+    
+    # Zoxide (smarter cd)
+    if ! command -v zoxide &>/dev/null; then
+        echo "Installing zoxide..."
+        curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+    else
+        echo "✅ zoxide already installed"
+    fi
+    
+    # UV (Python package manager)
+    if ! command -v uv &>/dev/null; then
+        echo "Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+    else
+        echo "✅ uv already installed"
+    fi
+    
+    echo "✅ Modern CLI tools installed"
+}
+
+main() {
+    _install_apt_packages
+    _install_modern_cli_tools
+    
+    #  Change default shell to zsh
+    if [[ "$SHELL" != *"zsh"* ]]; then
+        echo "Changing default shell to zsh..."
+        chsh -s "$(which zsh)"
+        echo "⚠️  You need to log out and log back in for the shell change to take effect"
+    fi
+    
+    echo "✅ Ubuntu packages installed!"
+}
+
+main "$@"

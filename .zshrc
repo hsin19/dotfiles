@@ -22,6 +22,14 @@ plugins=(
 source $ZSH/oh-my-zsh.sh
 
 # ------------------------------------------------------------------------------
+# PATH Additions
+# ------------------------------------------------------------------------------
+# Add ~/.local/bin for tools installed via standalone scripts (e.g., go-task, zoxide)
+if [[ -d "$HOME/.local/bin" ]] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# ------------------------------------------------------------------------------
 # Modern CLI Tools Initialization (fnm, uv, zoxide)
 # ------------------------------------------------------------------------------
 # FNM: Node Version Manager (with auto-switching)
@@ -44,7 +52,7 @@ fi
 # ------------------------------------------------------------------------------
 
 # Dotfiles Management (Bare Repository Mode)
-alias dotfiles='/usr/bin/git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
+alias dotfiles='git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 alias dotfilesup="$HOME/script/bootstrap -y"
 
 # Docker to Podman

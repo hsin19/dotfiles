@@ -1,102 +1,101 @@
 # Dotfiles
 
-This repository manages my development environment using a **Bare Git Repository workflow** combined with **idempotent bootstrap automation**.
+Personal development environment configuration for **macOS** and **Ubuntu**.
 
-It enables fast, reproducible workstation setup while keeping the `$HOME` directory clean and uncluttered.
+One command to set up a fully configured development machine.
 
-> **Why Bare Repository?**  
-> Unlike traditional dotfiles repos that use symlinks, this approach tracks configuration files directly in `$HOME` while keeping Git metadata separate (`~/.dotfiles`). No symlinks, no scripts moving files around—just pure Git tracking your configs in place.
+## ✨ Features
 
-## Capabilities
+- 🚀 **One-command setup** — Bootstrap a new machine in minutes
+- 🔄 **Idempotent** — Safe to re-run without breaking existing setups
+- 🍎 🐧 **Multi-platform** — Works on macOS and Ubuntu
+- 📦 **Package management** — Homebrew (macOS) and apt (Ubuntu)
+- 🎨 **Modern shell** — Zsh + Oh My Zsh + Powerlevel10k
+- 🤖 **AI-powered commits** — Smart commit message generation
+- ✅ **Clean workflow** — Files tracked in place, no symlinks needed
 
-- **Reproducible Setup** — Quickly provision a new machine with a single command.
-- **Idempotent Automation** — Safe to re-run without breaking existing environments.
-- **Bare Repo Workflow** — Tracks configuration files without polluting `$HOME`.
-- **Environment Bootstrapping** — Installs packages, configures shell, and sets up Git automatically.
-- **Integrated Developer Tools** — Includes AI-assisted commits and Homebrew package management.
+## 🚀 Quick Start
 
-## Prerequisites
-
-- macOS (tested on Big Sur and later)
-- Internet connection
-- `curl` (pre-installed on macOS)
-
-## Quick Start (New Machine Setup)
-
-Run the bootstrap script:
+Run this on a fresh machine:
 
 ```sh
 bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/master/script/bootstrap)
 ```
 
-This will automatically:
+The script will auto-detect your OS and set up everything automatically.
 
-- Prepare the environment
-- Install required tooling
-- Sync dotfiles into $HOME
-- Execute the provisioning workflow
+## 📋 What Gets Installed
 
-## Environment Configuration
+### 🍎 macOS (Desktop Development)
+- Homebrew + packages from Brewfile
+- GUI Apps: VS Code, Notion, etc.
+- Development tools: Node, Go, Python, and more
 
-Some optional features require environment variables.
+### 🐧 Ubuntu (Server Development)
+- CLI essentials: build tools, git, zsh
+- Modern CLI tools: eza, zoxide, fnm, btop
+- Development runtimes: Node, Go, Python
 
-You may need to configure .env for:
+### 🔧 Both Platforms
+- Zsh + Oh My Zsh + Powerlevel10k theme
+- Git with per-directory identities
+- AI commit tools (Claude, Gemini, Copilot)
 
-- Git identity
-- API keys (e.g., OpenAI)
-- Personal preferences
+## 🛠️ Common Tasks
 
-Copy the [sample file](../script/.env.sample) and fill in the values:
-
-```sh
-cp script/.env.sample script/.env
-```
-
-## Common Operations
-
-This project includes several convenient Git Aliases and scripts:
-
-### Update to latest configuration
-
+Update configs from repo:
 ```sh
 dotfilesup
-# or
-$HOME/script/bootstrap
 ```
 
-### AI-assisted commit messages
-
+AI-assisted commits:
 ```sh
 git ccc
-# or
-git ai-commit
-# or
-$HOME/script/ai-commit
 ```
 
-### Setup AI Commit Hook
+## 💡 How It Works
+
+This repo uses a **bare Git repository** approach. Instead of using symlinks, configuration files are tracked directly in `$HOME` while Git metadata stays in `~/.dotfiles/`.
+
+```
+Traditional approach:       This approach:
+~/dotfiles/                 ~/.dotfiles/      (metadata only)
+  .zshrc → ~/.zshrc         ~/.zshrc          (tracked in place)
+  (symlinks everywhere)     (no symlinks!)
+```
+
+The `dotfiles` command is an alias for `git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME`, letting you manage these files like a normal Git repo.
+
+**Benefits:**
+- ✅ Files live naturally in `$HOME`
+- ✅ No symlink management
+- ✅ Familiar Git workflow
+- ✅ Track only what you want
+
+## ⚙️ Configuration
+
+Optional: Create `script/.env` for personalization
 
 ```sh
-git sss
-# or
-git setup-hook
-
-# unset
-git setup-hook --unset
+GIT_USER_NAME="Your Name"
+GIT_USER_EMAIL="you@example.com"
+OPENAI_API_KEY="sk-..."  # For AI commits (optional)
 ```
 
-## Key Structure
+See [`script/.env.sample`](../script/.env.sample) for all options.
 
-```
-.
-├── script/
-│   ├── bootstrap         # 🚀 Entry point for new machine setup
-│   ├── setup             # ⚙️  Main provisioning workflow
-│   ├── ai-commit         # 🤖 AI-powered commit generator
-│   ├── setup-git-hook    # 🪝 Git hook installer
-│   ├── Brewfile          # 📦 Homebrew packages
-│   └── lib/              # 📚 Shared utilities
-├── .config/              # Application configs
-├── .zshrc                # Zsh configuration
-└── .p10k.zsh             # Powerlevel10k theme
-```
+## 🎯 Use Cases
+
+- **Fresh machine setup** — One command to get a fully configured dev environment
+- **Config sync** — Keep settings consistent across multiple machines  
+- **Server provisioning** — Quickly set up remote Ubuntu servers
+- **Safe experimentation** — Easy to test changes in VMs
+
+## 📚 Documentation
+
+- **[Script Documentation](../script/README.md)** — Technical details and architecture
+- **[Environment Template](../script/.env.sample)** — Configuration options
+
+---
+
+**Quick Links**: [Technical Docs](../script/README.md) · [Environment Setup](../script/.env.sample) · [AI Commits](../script/ai-commit)
