@@ -47,9 +47,9 @@ _install_modern_cli_tools() {
     if ! command -v eza &>/dev/null; then
         echo "Installing eza..."
         sudo mkdir -p /etc/apt/keyrings
-        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
-        sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/eza.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/eza.gpg] https://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/eza.list
+        sudo chmod 644 /etc/apt/keyrings/eza.gpg /etc/apt/sources.list.d/eza.list
         sudo apt update
         sudo apt install -y eza
     else
@@ -112,9 +112,14 @@ main() {
     
     #  Change default shell to zsh
     if [[ "${SHELL:-}" != *"zsh"* ]]; then
-        echo "Changing default shell to zsh..."
-        chsh -s "$(command -v zsh)"
-        echo "⚠️  You need to log out and log back in for the shell change to take effect"
+        if [[ -t 0 ]]; then
+            echo "Changing default shell to zsh..."
+            chsh -s "$(command -v zsh)"
+            echo "⚠️  You need to log out and log back in for the shell change to take effect"
+        else
+            echo "⚠️  Non-interactive session detected. Skipping shell change."
+            echo "To change your default shell to zsh, run: chsh -s $(command -v zsh)"
+        fi
     fi
     
     echo "✅ Ubuntu packages installed!"
