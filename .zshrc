@@ -24,7 +24,7 @@ source $ZSH/oh-my-zsh.sh
 # ------------------------------------------------------------------------------
 # PATH Additions
 # ------------------------------------------------------------------------------
-# Add ~/.local/bin for tools installed via standalone scripts (e.g., go-task, zoxide)
+# Add ~/.local/bin for tools installed via standalone scripts (e.g., zoxide)
 if [[ -d "$HOME/.local/bin" ]] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
   export PATH="$HOME/.local/bin:$PATH"
 fi

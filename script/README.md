@@ -62,7 +62,6 @@ Managed through [`Brewfile`](./Brewfile) - includes development tools, GUI apps,
 **Modern CLI Tools:**
 - `eza` - Modern ls replacement
 - `fnm` - Fast Node Manager
-- `go-task` - Task runner
 - `zoxide` - Smarter cd
 - `uv` - Python package manager
 
@@ -72,7 +71,7 @@ These are configured by the main [`setup`](./setup) script after platform-specif
 
 - **Zsh**: Oh My Zsh + Powerlevel10k + plugins
 - **Git**: Global config, aliases, per-directory identities
-- **npm**: Global packages (@anthropic-ai/claude-code, @google/gemini-cli, @github/copilot)
+- **npm**: Global packages (@anthropic-ai/claude-code, @google/gemini-cli, @github/copilot, @go-task/cli)
 
 ## Common Operations
 
