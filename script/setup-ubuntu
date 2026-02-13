@@ -132,8 +132,11 @@ main() {
             echo "     chsh -s \"\$(command -v zsh)\""
         elif [[ -t 0 ]]; then
             echo "Changing default shell to zsh..."
-            chsh -s "${zsh_path}" "${username}"
-            echo "⚠️  You need to log out and log back in for the shell change to take effect"
+            if chsh -s "${zsh_path}" "${username}"; then
+                echo "⚠️  You need to log out and log back in for the shell change to take effect"
+            else
+                echo "⚠️  Failed to change shell (wrong password?). Continuing setup..."
+            fi
         else
             echo "⚠️  Non-interactive session detected. Skipping shell change."
             echo "To change your default shell to zsh, run: chsh -s \"${zsh_path}\""
