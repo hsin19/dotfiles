@@ -33,7 +33,7 @@ _install_apt_packages() {
         btop
     )
 
-    sudo apt-get update
+    sudo apt-get update || true
     sudo apt-get install -y "${packages[@]}"
 
     echo "✅ APT packages installed"
