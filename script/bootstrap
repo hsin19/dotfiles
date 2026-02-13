@@ -8,40 +8,47 @@ set -euo pipefail
 
 # dotfiles function (replaces alias)
 dotfiles() {
-    /usr/bin/git --git-dir="$HOME/.dotfiles/" --work-tree="$HOME" "$@"
+    git --git-dir="$HOME/.dotfiles/" --work-tree="$HOME" "$@"
 }
 
-_install_homebrew() {
-    if ! command -v brew &>/dev/null; then
-        echo "Installing Homebrew..."
-        if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-            echo "✅ Homebrew installed successfully"
-            
-            if [[ $(uname -m) == "arm64" ]]; then
-                # let the following steps find brew
-                export PATH="/opt/homebrew/bin:$PATH"
-            fi
-        else
-            echo "❌ Failed to install Homebrew"
-            exit 1
-        fi
-    else
-        echo "✅ Homebrew already installed"
-    fi
-}
-
+# Install git if needed
 _install_git() {
-    if ! command -v git &>/dev/null; then
-        echo "Installing Git..."
-        if brew install git; then
-            echo "✅ Git installed successfully"
+    # Check if git is already available
+    if command -v git &>/dev/null; then
+        echo "✅ Git already installed"
+        return 0
+    fi
+    
+    # macOS: install Xcode Command Line Tools (includes git)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "Installing Xcode Command Line Tools (includes Git)..."
+        xcode-select --install 2>/dev/null || true
+        echo "⏳ Please complete the Xcode CLT installation dialog, then press Enter..."
+        if [[ -r /dev/tty ]]; then
+            read -r < /dev/tty
+        fi
+        if command -v git &>/dev/null; then
+            echo "✅ Git installed via Xcode CLT"
+            return 0
         else
-            echo "❌ Failed to install Git"
+            echo "❌ Git still not found. Please install Xcode CLT manually and try again."
             exit 1
         fi
-    else
-        echo "✅ Git already installed"
     fi
+    
+    # Linux: install git using apt
+    if command -v apt-get &>/dev/null; then
+        echo "Installing Git..."
+        sudo apt-get update
+        sudo apt-get install -y git
+        echo "✅ Git installed"
+        return 0
+    fi
+    
+    # Error: no git and no supported package manager
+    echo "❌ Git not found and package manager not supported for automatic installation"
+    echo "Please install git manually and try again"
+    exit 1
 }
 
 _clone_dotfiles() {
@@ -147,9 +154,8 @@ _checkout_dotfiles() {
 }
 
 main() {
-    echo "Starting dotfiles bootstrap..."
+    echo "🚀 Starting dotfiles bootstrap..."
     
-    _install_homebrew
     _install_git
     _clone_dotfiles
     _checkout_dotfiles
@@ -167,11 +173,15 @@ main() {
 
     # If setup not requested, ask the user
     if [ "$run_setup" = false ]; then
-        echo ""
-        read -p "Do you want to run the full setup script now? (y/N) " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            run_setup=true
+        if [[ -t 0 ]]; then
+            echo ""
+            read -p "Do you want to run the full setup script now? (y/N) " -n 1 -r < /dev/tty || true
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                run_setup=true
+            fi
+        else
+            echo "Skipping setup script (non-interactive mode). Run 'script/setup' manually to complete installation."
         fi
     fi
 

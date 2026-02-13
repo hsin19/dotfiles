@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Development environment setup script
+# Development environment setup script (Unified Entry Point)
 # Usage: ./setup
-# Sets up Homebrew, Git, Zsh, OpenCommit configs
+# Detects OS and runs appropriate platform-specific setup, then common configurations
 
 set -euo pipefail
 
@@ -11,55 +11,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source library modules
 source "$SCRIPT_DIR/lib/env-loader.sh"
+source "$SCRIPT_DIR/lib/os-detect.sh"
 
-_install_homebrew() {
-    if ! command -v brew &>/dev/null; then
-        echo "Installing Homebrew..."
-        if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-            echo "✅ Homebrew installed successfully"
-            
-            if [[ $(uname -m) == "arm64" ]]; then
-                # let subsequent steps find brew
-                export PATH="/opt/homebrew/bin:$PATH"
-            fi
-        else
-            echo "❌ Failed to install Homebrew"
-            exit 1
-        fi
-    else
-        echo "✅ Homebrew already installed"
-    fi
-}
+echo "🚀 Development Environment Setup"
+echo "=================================="
 
-_install_brew_packages() {
-    echo "Setting up Homebrew packages..."
-    
-    _install_homebrew
-
-    echo "Updating Homebrew..."
-    brew update
-    brew upgrade
-    
-    echo "Installing packages from Brewfile..."
-    # Look for Brewfile in the same directory as this script
-    
-    if [ -f "$SCRIPT_DIR/Brewfile" ]; then
-        echo "Using Brewfile from script directory..."
-        brew bundle --file="$SCRIPT_DIR/Brewfile"
-    else
-        echo "❌ Error: Brewfile not found at $SCRIPT_DIR/Brewfile"
-        echo "Please create a Brewfile in the script directory."
-        return 1
-    fi
-
-    brew cleanup
-    
-    echo "✅ Homebrew packages installation completed!"
-}
+# ============================================================================
+# Shared Setup Functions (Cross-platform)
+# ============================================================================
 
 _setup_git_identities() {
     echo "Setting up Git identities..."
-    
+
     # --- Global Git Config ---
     git config --global user.name "${GIT_USER_NAME:-Eric Yeh}"
     git config --global user.email "${GIT_USER_EMAIL:-eric91343@gmail.com}"
@@ -88,7 +51,7 @@ _setup_git_identities() {
 [user]
     email = ${ONELAB_EMAIL:-eric.yeh@onelab.tw}
 EOF
-    
+
     # Only create NuGet.config if ONELAB_NUGET_URL is set
     if [ -n "${ONELAB_NUGET_URL:-}" ]; then
         cat <<-EOF > ~/repos/onelab/NuGet.config
@@ -100,7 +63,7 @@ EOF
 </configuration>
 EOF
     else
-        echo "⚠️ ONELAB_NUGET_URL not set, skipping NuGet.config creation"
+        echo "⚠️  ONELAB_NUGET_URL not set, skipping NuGet.config creation"
     fi
 
     # ascentistech
@@ -110,23 +73,22 @@ EOF
 [user]
     email = ${ASCENTISTECH_EMAIL:-eric.yeh@ascentistech.com}
 EOF
-    
+
     echo "✅ Git identities setup completed!"
 }
 
 _setup_zsh() {
     echo "Setting up Oh My Zsh and plugins..."
 
-    # Check if Zsh is installed, which is a prerequisite for Oh My Zsh
+    # Check if Zsh is installed
     if ! command -v zsh &>/dev/null; then
-        echo "⚠️ Zsh is not installed. Please install it first (e.g., via Homebrew)."
+        echo "⚠️  Zsh is not installed. It should have been installed by the platform setup."
         return 1
     fi
 
     # Install Oh My Zsh if it's not already installed
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         echo "Installing Oh My Zsh..."
-        # Run the installer non-interactively
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
     else
         echo "✅ Oh My Zsh is already installed."
@@ -170,30 +132,86 @@ _setup_npm_packages() {
         "@anthropic-ai/claude-code"
         "@google/gemini-cli"
         "@github/copilot"
+        "@go-task/cli"
     )
-    
+
     echo "Installing/updating global npm packages..."
-    
+
     npm update -g npm
-    
+
     for package in "${npm_packages[@]}"; do
         echo "Installing/updating $package..."
         npm install -g "$package@latest"
     done
-    
+
     echo "✅ npm packages setup completed!"
 }
 
-main() {
-    echo "Starting development environment setup..."
+# ============================================================================
+# Main Execution
+# ============================================================================
 
+main() {
+    local os_name
+    os_name=$(detect_os)
+
+    echo "Detected OS: $os_name"
+    echo ""
+
+    # Load environment variables
     load_env "$SCRIPT_DIR"
-    _install_brew_packages
+
+    # Run platform-specific setup
+    if is_macos; then
+        if [ -f "$SCRIPT_DIR/setup-macos" ]; then
+            bash "$SCRIPT_DIR/setup-macos"
+        else
+            echo "❌ setup-macos not found"
+            exit 1
+        fi
+    elif is_ubuntu; then
+        if [ -f "$SCRIPT_DIR/setup-ubuntu" ]; then
+            bash "$SCRIPT_DIR/setup-ubuntu"
+        else
+            echo "❌ setup-ubuntu not found"
+            exit 1
+        fi
+    else
+        echo "❌ Unsupported OS: $os_name"
+        echo "Supported: macos, ubuntu"
+        exit 1
+    fi
+
+    # Ensure Homebrew is on PATH for macOS (arm64) after platform setup
+    if is_macos && [[ $(uname -m) == "arm64" ]] && [[ ":$PATH:" != *":/opt/homebrew/bin:"* ]]; then
+        export PATH="/opt/homebrew/bin:$PATH"
+    fi
+
+    # Ensure fnm is on PATH and initialized after platform setup (Ubuntu)
+    if is_ubuntu; then
+        export PATH="$HOME/.local/share/fnm:$PATH"
+        if command -v fnm &>/dev/null; then
+            eval "$(fnm env)"
+        fi
+    fi
+
+    echo ""
+    echo "🔧 Running cross-platform setup..."
+    echo ""
+
+    # Run shared setup functions
     _setup_zsh
     _setup_git_identities
     _setup_npm_packages
 
-    echo "All done! Your development environment is ready."
+    echo ""
+    echo "🎉 All done! Your development environment is ready."
+    echo ""
+    echo "📝 Next steps:"
+    echo "  1. Restart your terminal or run: source ~/.zshrc"
+    if is_ubuntu; then
+        echo "  2. If you changed default shell to zsh, log out and log back in"
+    fi
 }
 
 main "$@"

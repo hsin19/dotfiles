@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Auto commit tool with AI-powered commit message generation
-# Usage: 
+# Usage:
 #   ./ai-commit                        - Generate AI commit message automatically
-#   ./ai-commit "message"              - Commit with custom message  
+#   ./ai-commit "message"              - Commit with custom message
 #   ./ai-commit "# custom prompt"      - Generate AI message with custom prompt
-# Args: 
+# Args:
 #   message     Commit message or AI prompt (starting with #) (optional)
 
 set -euo pipefail
@@ -48,10 +48,10 @@ _stage_files() {
     if ! git diff --cached --quiet; then
         return 0
     fi
-    
+
     echo "ℹ️  No staged changes found. Staging all changes..."
     git add .
-    
+
     if git diff --cached --quiet; then
         # Still no staged changes after git add
         echo "❌ No changes to stage"
@@ -65,7 +65,7 @@ _stage_files() {
 # Main function
 main() {
     local commit_message=""
-    
+
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -84,18 +84,18 @@ main() {
                 ;;
         esac
     done
-    
+
     # Check if we're in a git repository
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "❌ Error: Not in a git repository" >&2
         exit 1
     fi
-    
+
     echo "🚀 Starting git commit process..."
-    
+
     # Stage files
     _stage_files
-    
+
     # Check if there are staged changes
     if ! git diff --cached --quiet; then
         # Generate/process commit message
@@ -144,7 +144,7 @@ main() {
         echo "⚠️ No staged changes to commit"
         exit 0
     fi
-    
+
     echo "🎉 Git commit process completed!"
 }
 

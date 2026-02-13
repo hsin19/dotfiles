@@ -1,0 +1,146 @@
+#!/bin/bash
+
+# Ubuntu-specific setup script
+# Usage: Called by setup script, do not run directly
+# Installs packages via apt and other Ubuntu-specific tools
+
+set -euo pipefail
+
+echo "🐧 Ubuntu Package Installation"
+echo "==============================="
+
+# Install APT packages
+_install_apt_packages() {
+    echo "📦 Installing APT packages..."
+
+    local packages=(
+        # Build essentials
+        build-essential
+        curl
+        wget
+        gnupg
+        ca-certificates
+        git
+        jq
+
+        # Languages and runtimes
+        golang-go
+
+        # Shell
+        zsh
+
+        # System monitoring
+        btop
+    )
+
+    sudo apt-get update
+    sudo apt-get install -y "${packages[@]}"
+
+    echo "✅ APT packages installed"
+}
+
+# Install modern CLI tools
+_install_modern_cli_tools() {
+    echo "🔧 Installing modern CLI tools..."
+
+    # Eza (modern ls)
+    if ! command -v eza &>/dev/null; then
+        echo "Installing eza..."
+        sudo mkdir -p /etc/apt/keyrings
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/eza.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/eza.gpg] https://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/eza.list
+        sudo chmod 644 /etc/apt/keyrings/eza.gpg /etc/apt/sources.list.d/eza.list
+        sudo apt update
+        sudo apt install -y eza
+    else
+        echo "✅ eza already installed"
+    fi
+
+    # FNM (Fast Node Manager)
+    if ! command -v fnm &>/dev/null; then
+        echo "Installing fnm..."
+        curl -fsSL https://fnm.vercel.app/install | bash
+        # Add fnm to PATH for current session
+        export PATH="$HOME/.local/share/fnm:$PATH"
+    else
+        echo "✅ fnm already installed"
+    fi
+
+    # Install Node.js LTS via fnm if not already installed
+    if command -v fnm &>/dev/null; then
+        eval "$(fnm env)"
+        if ! command -v node &>/dev/null; then
+            echo "Installing Node.js LTS via fnm..."
+            fnm install --lts
+            fnm default lts-latest
+        else
+            echo "✅ Node.js already installed ($(node --version))"
+        fi
+    fi
+
+    # Zoxide (smarter cd)
+    if ! command -v zoxide &>/dev/null; then
+        echo "Installing zoxide..."
+        curl -fsSL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+    else
+        echo "✅ zoxide already installed"
+    fi
+
+    # UV (Python package manager)
+    if ! command -v uv &>/dev/null; then
+        echo "Installing uv..."
+        curl -fsSL https://astral.sh/uv/install.sh | sh
+    else
+        echo "✅ uv already installed"
+    fi
+
+    echo "✅ Modern CLI tools installed"
+}
+
+main() {
+    _install_apt_packages
+    _install_modern_cli_tools
+
+    #  Change default shell to zsh (based on login shell, not just $SHELL)
+    local login_shell
+    local username=""
+
+    # Derive username safely under `set -u`
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        username="${SUDO_USER}"
+    elif [[ -n "${USER:-}" ]]; then
+        username="${USER}"
+    else
+        username="$(id -un 2>/dev/null || true)"
+    fi
+
+    if [[ -n "${username:-}" ]]; then
+        login_shell="$(getent passwd "${username}" | cut -d: -f7 || true)"
+    else
+        login_shell=""
+    fi
+    if [[ -z "${login_shell:-}" ]]; then
+        login_shell="${SHELL:-}"
+    fi
+
+    if [[ "${login_shell:-}" != *"zsh"* ]]; then
+        # Find zsh safely under `set -e`
+        zsh_path="$(command -v zsh || true)"
+        if [[ -z "${zsh_path:-}" ]]; then
+            echo "❌ zsh executable not found on PATH. Skipping shell change."
+            echo "   Please ensure zsh is installed and available, then run:"
+            echo "     chsh -s \"\$(command -v zsh)\""
+        elif [[ -t 0 ]]; then
+            echo "Changing default shell to zsh..."
+            chsh -s "${zsh_path}" "${username}"
+            echo "⚠️  You need to log out and log back in for the shell change to take effect"
+        else
+            echo "⚠️  Non-interactive session detected. Skipping shell change."
+            echo "To change your default shell to zsh, run: chsh -s \"${zsh_path}\""
+        fi
+    fi
+
+    echo "✅ Ubuntu packages installed!"
+}
+
+main "$@"

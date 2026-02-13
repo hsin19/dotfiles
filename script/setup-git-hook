@@ -9,7 +9,7 @@ set -euo pipefail
 _setup_prepare_commit_msg_hook() {
     local repo_path="${1:-.}"
     local hook_file="$repo_path/.git/hooks/prepare-commit-msg"
-    
+
     mkdir -p "$repo_path/.git/hooks"
 
     if [ -f "$hook_file" ]; then
@@ -18,12 +18,12 @@ _setup_prepare_commit_msg_hook() {
             echo "✅ prepare-commit-msg hook already configured in $(basename "$repo_path")"
             return 0
         fi
-        
+
         # Check if existing file uses bash
         if ! head -1 "$hook_file" | grep -q "bash"; then
             echo "⚠️  Warning: Existing hook doesn't use bash, may cause compatibility issues"
         fi
-        
+
         # Backup existing hook
         cp "$hook_file" "$hook_file.backup.$(date +%Y%m%d_%H%M%S)"
         echo "📦 Backed up existing prepare-commit-msg hook in $(basename "$repo_path")"
@@ -85,12 +85,12 @@ _check_hook_status() {
     local hook_file="$repo_path/.git/hooks/prepare-commit-msg"
 
     echo "🔍 Checking prepare-commit-msg hook status in $(basename "$repo_path"):"
-    
+
     if [ ! -f "$hook_file" ]; then
         echo "❌ No prepare-commit-msg hook found"
         return 1
     fi
-    
+
     if grep -q "DOTFILES HOOK START" "$hook_file"; then
         echo "✅ Dotfiles prepare-commit-msg hook is installed"
         echo "📄 Hook file: $hook_file"
@@ -147,7 +147,7 @@ main() {
         echo "❌ Error: Directory $REPO_PATH does not exist"
         exit 1
     fi
-    
+
     REPO_PATH=$(cd "$REPO_PATH" && pwd)
 
     if [ ! -d "$REPO_PATH/.git" ]; then

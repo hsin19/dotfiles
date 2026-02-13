@@ -24,9 +24,9 @@ main() {
     local sha1=${3:-}
     local original_msg
     local modified_msg
-    
+
     setup_error_handling
-    
+
     # Skip processing for merge commits, squash, etc.
     if [ -n "$commit_source" ] && [ "$commit_source" != "message" ]; then
         exit 0
@@ -42,23 +42,23 @@ main() {
         echo "Error: Missing commit message file parameter" >&2
         exit 1
     fi
-    
+
     if [ ! -f "$commit_msg_file" ]; then
         echo "Error: Commit message file does not exist: $commit_msg_file" >&2
         exit 1
     fi
-    
+
     # Check if we're in a git repository (but don't exit, just warn)
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "Warning: Not in a git repository" >&2
         exit 0
     fi
-    
+
     if ! original_msg=$(cat "$commit_msg_file"); then
         echo "Error: Failed to read commit message file" >&2
         exit 1
     fi
-    
+
     # Extract input commit content based on commit_source
     if [ -z "$commit_source" ]; then
         # This is plain 'git commit' - remove Git's auto-generated comment lines
@@ -67,12 +67,12 @@ main() {
         # This is user input (git commit -m), keep everything including lines starting with #
         input_commit="$original_msg"
     fi
-    
+
     if ! modified_msg=$(generate_commit_message "$input_commit"); then
         echo "Error: Failed to process commit message" >&2
         exit 1
     fi
-    
+
     # Only write to file if message has changed
     if [ "$input_commit" != "$modified_msg" ]; then
         if ! echo "$modified_msg" > "$commit_msg_file"; then
@@ -80,7 +80,7 @@ main() {
             exit 1
         fi
     fi
-    
+
     exit 0
 }
 
