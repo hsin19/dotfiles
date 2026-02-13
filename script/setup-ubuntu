@@ -81,7 +81,7 @@ _install_modern_cli_tools() {
     # Zoxide (smarter cd)
     if ! command -v zoxide &>/dev/null; then
         echo "Installing zoxide..."
-        curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+        curl -fsSL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
     else
         echo "✅ zoxide already installed"
     fi
@@ -89,7 +89,7 @@ _install_modern_cli_tools() {
     # UV (Python package manager)
     if ! command -v uv &>/dev/null; then
         echo "Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
+        curl -fsSL https://astral.sh/uv/install.sh | sh
     else
         echo "✅ uv already installed"
     fi
