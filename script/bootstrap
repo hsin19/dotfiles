@@ -24,7 +24,10 @@ _install_git() {
         echo "Installing Xcode Command Line Tools (includes Git)..."
         xcode-select --install 2>/dev/null || true
         echo "⏳ Please complete the Xcode CLT installation dialog, then press Enter..."
-        read -r < /dev/tty
+        echo "⏳ Please complete the Xcode CLT installation dialog, then press Enter..."
+        if [[ -r /dev/tty ]]; then
+            read -r < /dev/tty
+        fi
         if command -v git &>/dev/null; then
             echo "✅ Git installed via Xcode CLT"
             return 0
@@ -171,11 +174,15 @@ main() {
 
     # If setup not requested, ask the user
     if [ "$run_setup" = false ]; then
-        echo ""
-        read -p "Do you want to run the full setup script now? (y/N) " -n 1 -r < /dev/tty
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            run_setup=true
+        if [[ -t 0 ]]; then
+            echo ""
+            read -p "Do you want to run the full setup script now? (y/N) " -n 1 -r < /dev/tty || true
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                run_setup=true
+            fi
+        else
+            echo "Skipping setup script (non-interactive mode). Run 'script/setup' manually to complete installation."
         fi
     fi
 
