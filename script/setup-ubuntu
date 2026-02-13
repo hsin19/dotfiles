@@ -47,11 +47,11 @@ _install_modern_cli_tools() {
     if ! command -v eza &>/dev/null; then
         echo "Installing eza..."
         sudo mkdir -p /etc/apt/keyrings
-        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/eza.gpg
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --yes --dearmor -o /etc/apt/keyrings/eza.gpg
         echo "deb [signed-by=/etc/apt/keyrings/eza.gpg] https://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/eza.list
         sudo chmod 644 /etc/apt/keyrings/eza.gpg /etc/apt/sources.list.d/eza.list
-        sudo apt update
-        sudo apt install -y eza
+        sudo apt-get update || true
+        sudo apt-get install -y eza
     else
         echo "✅ eza already installed"
     fi
