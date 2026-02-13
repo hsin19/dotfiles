@@ -87,7 +87,7 @@ See [`script/.env.sample`](../script/.env.sample) for all options.
 ## 🎯 Use Cases
 
 - **Fresh machine setup** — One command to get a fully configured dev environment
-- **Config sync** — Keep settings consistent across multiple machines  
+- **Config sync** — Keep settings consistent across multiple machines
 - **Server provisioning** — Quickly set up remote Ubuntu servers
 - **Safe experimentation** — Easy to test changes in VMs
 

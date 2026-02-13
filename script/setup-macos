@@ -17,7 +17,7 @@ _install_homebrew() {
         echo "Installing Homebrew..."
         if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
             echo "✅ Homebrew installed successfully"
-            
+
             if [[ $(uname -m) == "arm64" ]]; then
                 # let subsequent steps find brew
                 export PATH="/opt/homebrew/bin:$PATH"
@@ -33,16 +33,16 @@ _install_homebrew() {
 
 _install_brew_packages() {
     echo "Setting up Homebrew packages..."
-    
+
     _install_homebrew
 
     echo "Updating Homebrew..."
     brew update
     brew upgrade
-    
+
     echo "Installing packages from Brewfile..."
     # Look for Brewfile in the same directory as this script
-    
+
     if [ -f "$SCRIPT_DIR/Brewfile" ]; then
         echo "Using Brewfile from script directory..."
         brew bundle --file="$SCRIPT_DIR/Brewfile"
@@ -53,7 +53,7 @@ _install_brew_packages() {
     fi
 
     brew cleanup
-    
+
     echo "✅ Homebrew packages installation completed!"
 }
 

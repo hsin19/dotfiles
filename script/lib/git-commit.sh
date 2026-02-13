@@ -256,7 +256,7 @@ _try_openai() {
 
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 500)
-    
+
     local payload
     payload=$(jq -n --arg prompt "$prompt" '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}')
 
@@ -277,11 +277,11 @@ _generate_ai_commit_message() {
 
     # Get LLM service priority order from env var, default to claude,ccr,gemini,copilot,openai
     local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-}"
-    
+
     if [ -z "$llm_priority" ]; then
         llm_priority=$(git config --get dotfiles.ai.llm-priority 2>/dev/null)
     fi
-    
+
     # Default if still empty
     if [ -z "$llm_priority" ]; then
         llm_priority="claude,ccr,gemini,copilot,openai"

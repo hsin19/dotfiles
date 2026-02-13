@@ -12,7 +12,7 @@ echo "==============================="
 # Install APT packages
 _install_apt_packages() {
     echo "📦 Installing APT packages..."
-    
+
     local packages=(
         # Build essentials
         build-essential
@@ -22,27 +22,27 @@ _install_apt_packages() {
         ca-certificates
         git
         jq
-        
+
         # Languages and runtimes
         golang-go
-        
+
         # Shell
         zsh
-        
+
         # System monitoring
         btop
     )
-    
+
     sudo apt-get update
     sudo apt-get install -y "${packages[@]}"
-    
+
     echo "✅ APT packages installed"
 }
 
 # Install modern CLI tools
 _install_modern_cli_tools() {
     echo "🔧 Installing modern CLI tools..."
-    
+
     # Eza (modern ls)
     if ! command -v eza &>/dev/null; then
         echo "Installing eza..."
@@ -55,7 +55,7 @@ _install_modern_cli_tools() {
     else
         echo "✅ eza already installed"
     fi
-    
+
     # FNM (Fast Node Manager)
     if ! command -v fnm &>/dev/null; then
         echo "Installing fnm..."
@@ -65,7 +65,7 @@ _install_modern_cli_tools() {
     else
         echo "✅ fnm already installed"
     fi
-    
+
     # Install Node.js LTS via fnm if not already installed
     if command -v fnm &>/dev/null; then
         eval "$(fnm env)"
@@ -85,7 +85,7 @@ _install_modern_cli_tools() {
     else
         echo "✅ zoxide already installed"
     fi
-    
+
     # UV (Python package manager)
     if ! command -v uv &>/dev/null; then
         echo "Installing uv..."
@@ -93,14 +93,14 @@ _install_modern_cli_tools() {
     else
         echo "✅ uv already installed"
     fi
-    
+
     echo "✅ Modern CLI tools installed"
 }
 
 main() {
     _install_apt_packages
     _install_modern_cli_tools
-    
+
     #  Change default shell to zsh (based on login shell, not just $SHELL)
     local login_shell
     local username=""
@@ -139,7 +139,7 @@ main() {
             echo "To change your default shell to zsh, run: chsh -s \"${zsh_path}\""
         fi
     fi
-    
+
     echo "✅ Ubuntu packages installed!"
 }
 

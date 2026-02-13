@@ -22,7 +22,7 @@ echo "=================================="
 
 _setup_git_identities() {
     echo "Setting up Git identities..."
-    
+
     # --- Global Git Config ---
     git config --global user.name "${GIT_USER_NAME:-Eric Yeh}"
     git config --global user.email "${GIT_USER_EMAIL:-eric91343@gmail.com}"
@@ -51,7 +51,7 @@ _setup_git_identities() {
 [user]
     email = ${ONELAB_EMAIL:-eric.yeh@onelab.tw}
 EOF
-    
+
     # Only create NuGet.config if ONELAB_NUGET_URL is set
     if [ -n "${ONELAB_NUGET_URL:-}" ]; then
         cat <<-EOF > ~/repos/onelab/NuGet.config
@@ -73,7 +73,7 @@ EOF
 [user]
     email = ${ASCENTISTECH_EMAIL:-eric.yeh@ascentistech.com}
 EOF
-    
+
     echo "✅ Git identities setup completed!"
 }
 
@@ -134,16 +134,16 @@ _setup_npm_packages() {
         "@github/copilot"
         "@go-task/cli"
     )
-    
+
     echo "Installing/updating global npm packages..."
-    
+
     npm update -g npm
-    
+
     for package in "${npm_packages[@]}"; do
         echo "Installing/updating $package..."
         npm install -g "$package@latest"
     done
-    
+
     echo "✅ npm packages setup completed!"
 }
 
@@ -154,13 +154,13 @@ _setup_npm_packages() {
 main() {
     local os_name
     os_name=$(detect_os)
-    
+
     echo "Detected OS: $os_name"
     echo ""
-    
+
     # Load environment variables
     load_env "$SCRIPT_DIR"
-    
+
     # Run platform-specific setup
     if is_macos; then
         if [ -f "$SCRIPT_DIR/setup-macos" ]; then
@@ -181,12 +181,12 @@ main() {
         echo "Supported: macos, ubuntu"
         exit 1
     fi
-    
+
     # Ensure Homebrew is on PATH for macOS (arm64) after platform setup
     if is_macos && [[ $(uname -m) == "arm64" ]] && [[ ":$PATH:" != *":/opt/homebrew/bin:"* ]]; then
         export PATH="/opt/homebrew/bin:$PATH"
     fi
-    
+
     # Ensure fnm is on PATH and initialized after platform setup (Ubuntu)
     if is_ubuntu; then
         export PATH="$HOME/.local/share/fnm:$PATH"
@@ -194,16 +194,16 @@ main() {
             eval "$(fnm env)"
         fi
     fi
-    
+
     echo ""
     echo "🔧 Running cross-platform setup..."
     echo ""
-    
+
     # Run shared setup functions
     _setup_zsh
     _setup_git_identities
     _setup_npm_packages
-    
+
     echo ""
     echo "🎉 All done! Your development environment is ready."
     echo ""

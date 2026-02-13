@@ -19,7 +19,7 @@ graph TB
         D --> F[Checkout to $HOME]
         F --> G[Run setup]
     end
-    
+
     subgraph "Setup Phase"
         G --> H{Detect OS}
         H -->|macOS| I[setup-macos]
