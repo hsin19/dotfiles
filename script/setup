@@ -132,6 +132,7 @@ _setup_npm_packages() {
         "@anthropic-ai/claude-code"
         "@google/gemini-cli"
         "@github/copilot"
+        "@go-task/cli"
     )
     
     echo "Installing/updating global npm packages..."

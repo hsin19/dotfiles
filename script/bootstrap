@@ -24,7 +24,6 @@ _install_git() {
         echo "Installing Xcode Command Line Tools (includes Git)..."
         xcode-select --install 2>/dev/null || true
         echo "⏳ Please complete the Xcode CLT installation dialog, then press Enter..."
-        echo "⏳ Please complete the Xcode CLT installation dialog, then press Enter..."
         if [[ -r /dev/tty ]]; then
             read -r < /dev/tty
         fi
