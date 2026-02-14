@@ -18,7 +18,7 @@ _install_git() {
         echo "✅ Git already installed"
         return 0
     fi
-    
+
     # macOS: install Xcode Command Line Tools (includes git)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         echo "Installing Xcode Command Line Tools (includes Git)..."
@@ -35,7 +35,7 @@ _install_git() {
             exit 1
         fi
     fi
-    
+
     # Linux: install git using apt
     if command -v apt-get &>/dev/null; then
         echo "Installing Git..."
@@ -44,7 +44,7 @@ _install_git() {
         echo "✅ Git installed"
         return 0
     fi
-    
+
     # Error: no git and no supported package manager
     echo "❌ Git not found and package manager not supported for automatic installation"
     echo "Please install git manually and try again"
@@ -53,7 +53,7 @@ _install_git() {
 
 _clone_dotfiles() {
     local dotfiles_dir="$HOME/.dotfiles"
-    
+
     if [ ! -d "$dotfiles_dir" ]; then
         echo "Cloning dotfiles repository..."
         if git clone --bare https://github.com/hsin19/dotfiles.git "$dotfiles_dir"; then
@@ -73,7 +73,7 @@ _handle_conflicts() {
     local operation="$1"
     local output="$2"
     local backup_dir="$HOME/config-backup"
-    
+
     local operation_backup_dir
     operation_backup_dir="$backup_dir/$operation-conflicts-$(date +%Y%m%d_%H%M%S)"
     mkdir -p "$operation_backup_dir"
@@ -117,7 +117,7 @@ _handle_conflicts() {
 
 _checkout_dotfiles() {
     echo "Attempting dotfiles checkout..."
-    
+
     if ! checkout_output=$(dotfiles checkout 2>&1); then
         if _handle_conflicts "checkout" "$checkout_output"; then
             if dotfiles checkout; then
@@ -130,7 +130,7 @@ _checkout_dotfiles() {
     else
         echo "✅ Dotfiles checked out successfully"
     fi
-    
+
     # Pull latest changes
     echo "Pulling latest dotfiles updates..."
     if ! pull_output=$(dotfiles pull 2>&1); then
@@ -155,13 +155,13 @@ _checkout_dotfiles() {
 
 main() {
     echo "🚀 Starting dotfiles bootstrap..."
-    
+
     _install_git
     _clone_dotfiles
     _checkout_dotfiles
 
     echo "✅ Dotfiles bootstrap completed successfully!"
-    
+
     # Check for -y or --yes argument
     local run_setup=false
     for arg in "$@"; do

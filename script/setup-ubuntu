@@ -23,9 +23,6 @@ _install_apt_packages() {
         git
         jq
 
-        # Languages and runtimes
-        golang-go
-
         # Shell
         zsh
 

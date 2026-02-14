@@ -27,16 +27,19 @@ The script will auto-detect your OS and set up everything automatically.
 ## 📋 What Gets Installed
 
 ### 🍎 macOS (Desktop Development)
+
 - Homebrew + packages from Brewfile
 - GUI Apps: VS Code, Notion, etc.
-- Development tools: Node, Go, Python, and more
+- Development tools: Node, Python, and more
 
 ### 🐧 Ubuntu (Server Development)
+
 - CLI essentials: build tools, git, zsh
 - Modern CLI tools: eza, zoxide, fnm, btop
-- Development runtimes: Node, Go, Python
+- Development runtimes: Node, Python
 
 ### 🔧 Both Platforms
+
 - Zsh + Oh My Zsh + Powerlevel10k theme
 - Git with per-directory identities
 - AI commit tools (Claude, Gemini, Copilot)
@@ -44,11 +47,13 @@ The script will auto-detect your OS and set up everything automatically.
 ## 🛠️ Common Tasks
 
 Update configs from repo:
+
 ```sh
 dotfilesup
 ```
 
 AI-assisted commits:
+
 ```sh
 git ccc
 ```
@@ -67,6 +72,7 @@ Traditional approach:       This approach:
 The `dotfiles` command is an alias for `git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME`, letting you manage these files like a normal Git repo.
 
 **Benefits:**
+
 - ✅ Files live naturally in `$HOME`
 - ✅ No symlink management
 - ✅ Familiar Git workflow

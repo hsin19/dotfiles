@@ -4,9 +4,6 @@ brew "eza"
 brew "fnm"
 # Distributed revision control system
 brew "git"
-# Open source programming language to build simple/reliable/efficient software
-brew "go"
-
 # Open-source, cross-platform JavaScript runtime environment
 brew "node"
 # Extremely fast Python package installer and resolver, written in Rust
