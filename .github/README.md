@@ -85,7 +85,7 @@ Optional: Create `script/.env` for personalization
 ```sh
 GIT_USER_NAME="Your Name"
 GIT_USER_EMAIL="you@example.com"
-OPENAI_API_KEY="sk-..."  # For AI commits (optional)
+# ...
 ```
 
 See [`script/.env.sample`](../script/.env.sample) for all options.

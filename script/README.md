@@ -102,10 +102,4 @@ $HOME/script/bootstrap -y
 
 ## Environment Variables
 
-Create `script/.env` from [`.env.sample`](./.env.sample) and configure:
-
-- `GIT_USER_NAME` / `GIT_USER_EMAIL` - Global Git identity
-- `ONELAB_EMAIL` - Git identity for ~/repos/onelab
-- `ASCENTISTECH_EMAIL` - Git identity for ~/repos/ascentistech
-- `ONELAB_NUGET_URL` - NuGet source (optional)
-- `OPENAI_API_KEY` - For AI commit features (optional)
+Create `script/.env` from [`.env.sample`](./.env.sample) and see the file for configuration details.
