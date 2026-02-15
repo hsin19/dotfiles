@@ -32,6 +32,21 @@ _setup_git_identities() {
         git config --global user.email "$GIT_USER_EMAIL"
     fi
 
+    if [ -n "${GIT_SSH_SIGNING_KEY:-}" ]; then
+        local signing_key_path="${GIT_SSH_SIGNING_KEY/#\~/$HOME}"
+
+        if [ -f "$signing_key_path" ]; then
+            echo "Setting up Git SSH signing with key: $signing_key_path"
+            git config --global gpg.format ssh
+            git config --global user.signingkey "$signing_key_path"
+            git config --global commit.gpgsign true
+        else
+            echo "⚠️  GIT_SSH_SIGNING_KEY provided but file not found: $GIT_SSH_SIGNING_KEY"
+            echo "   (Expanded path: $signing_key_path)"
+            echo "   Skipping SSH signing configuration."
+        fi
+    fi
+
     # --- Git Aliases ---
     echo "Setting up Git aliases..."
     git config --global alias.ai-commit "!bash $HOME/script/ai-commit"
