@@ -24,8 +24,13 @@ _setup_git_identities() {
     echo "Setting up Git identities..."
 
     # --- Global Git Config ---
-    git config --global user.name "${GIT_USER_NAME:-Eric Yeh}"
-    git config --global user.email "${GIT_USER_EMAIL:-eric91343@gmail.com}"
+    if [ -n "${GIT_USER_NAME:-}" ]; then
+        git config --global user.name "$GIT_USER_NAME"
+    fi
+
+    if [ -n "${GIT_USER_EMAIL:-}" ]; then
+        git config --global user.email "$GIT_USER_EMAIL"
+    fi
 
     # --- Git Aliases ---
     echo "Setting up Git aliases..."
@@ -42,37 +47,67 @@ _setup_git_identities() {
     echo "✅ Configured global gitignore to use $global_gitignore"
 
     # --- Per-directory Git Config ---
-    mkdir -p "$HOME/repos/github"
+    _setup_git_workspace() {
+        local workspace_name="$1"
 
-    # onelab
-    mkdir -p "$HOME/repos/onelab"
-    git config --global includeIf."gitdir:~/repos/onelab/".path ~/repos/onelab/.gitconfig
-    cat <<-EOF > ~/repos/onelab/.gitconfig
-[user]
-    email = ${ONELAB_EMAIL:-eric.yeh@onelab.tw}
-EOF
+        if [ -z "$workspace_name" ]; then
+            echo "❌ Workspace name is required"
+            return 1
+        fi
 
-    # Only create NuGet.config if ONELAB_NUGET_URL is set
-    if [ -n "${ONELAB_NUGET_URL:-}" ]; then
-        cat <<-EOF > ~/repos/onelab/NuGet.config
+        if [[ ! "$workspace_name" =~ ^[a-zA-Z0-9]+$ ]]; then
+            echo "❌ Invalid workspace name: '$workspace_name'"
+            echo "   Workspace names must contain only: a-z, A-Z, 0-9"
+            return 1
+        fi
+
+        echo "Setting up workspace: $workspace_name..."
+        local workspace_dir="$HOME/repos/$workspace_name"
+        mkdir -p "$workspace_dir"
+
+        # workspace git config
+        local config_file="$workspace_dir/.gitconfig"
+        git config --global includeIf."gitdir:$workspace_dir/".path "$config_file"
+
+        if [ ! -f "$config_file" ]; then
+            touch "$config_file"
+        fi
+
+        # git email config
+        local email_var="GIT_WORKSPACE_${workspace_name}_EMAIL"
+        local workspace_email="${!email_var:-}"
+
+        if [ -n "$workspace_email" ]; then
+            git config -f "$config_file" user.email "$workspace_email"
+        fi
+
+        # nuget config
+        local nuget_var="GIT_WORKSPACE_${workspace_name}_NUGET_URL"
+        local workspace_nuget_url="${!nuget_var:-}"
+
+        if [ -n "$workspace_nuget_url" ]; then
+            local nuget_config="$workspace_dir/NuGet.config"
+            if [ -f "$nuget_config" ]; then
+                echo "⚠️  $nuget_config already exists, skipping..."
+            else
+                cat <<-EOF > "$nuget_config"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
     <packageSources>
-        <add key="onelab" value="$ONELAB_NUGET_URL" protocolVersion="3" />
+        <add key="$workspace_name" value="$workspace_nuget_url" protocolVersion="3" />
     </packageSources>
 </configuration>
 EOF
-    else
-        echo "⚠️  ONELAB_NUGET_URL not set, skipping NuGet.config creation"
-    fi
+            fi
+        fi
+    }
 
-    # ascentistech
-    mkdir -p "$HOME/repos/ascentistech"
-    git config --global includeIf."gitdir:~/repos/ascentistech/".path ~/repos/ascentistech/.gitconfig
-    cat <<-EOF > ~/repos/ascentistech/.gitconfig
-[user]
-    email = ${ASCENTISTECH_EMAIL:-eric.yeh@ascentistech.com}
-EOF
+    # Load workspaces from env
+    if [ -n "${GIT_WORKSPACES:-}" ]; then
+        for workspace in ${GIT_WORKSPACES}; do
+            _setup_git_workspace "$workspace"
+        done
+    fi
 
     echo "✅ Git identities setup completed!"
 }
