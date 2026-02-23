@@ -81,7 +81,7 @@ $diff_section
 
 <type>(<scope>): <description>
 
-[optional body with bullet points using -]
+[body - ONLY IF changes are complex and require explanation]
 
 ## Rules
 
@@ -94,13 +94,14 @@ $diff_section
 - No period at end
 - Maximum 72 characters
 
-### Body (OPTIONAL - ONLY for complex changes)
-- **SKIP the body completely for simple changes (e.g., typos, single file updates, small refactors).**
-- Separate from subject with blank line
-- Use bullet points with "-"
-- Maximum 100 characters per line
-- Explain WHAT and WHY, not HOW
-- Be objective and concise
+### Body (MANDATORY TO SKIP FOR SIMPLE CHANGES)
+- **DO NOT include a body for simple changes** (e.g., style, formatting, typos, small refactors, single file updates).
+- Only if the change is complex and truly requires explanation:
+  - Separate from subject with a blank line
+  - Use bullet points with "-"
+  - Maximum 100 characters per line
+  - Explain WHAT and WHY, not HOW
+  - Be objective and concise
 ${context_part}
 ## Critical Requirements
 1. Output ONLY the commit message
