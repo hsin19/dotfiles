@@ -61,11 +61,6 @@ fi
 alias dotfiles='git --git-dir=$HOME/.dotfiles/ --work-tree=$HOME'
 alias dotfilesup="$HOME/script/bootstrap -y"
 
-# Docker to Podman
-if command -v podman >/dev/null 2>&1; then
-  alias docker=podman
-fi
-
 # Eza (Modern replacement for ls)
 if command -v eza >/dev/null 2>&1; then
   alias ls="eza --icons"
