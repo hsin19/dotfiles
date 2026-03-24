@@ -29,6 +29,12 @@ if [[ -d "$HOME/.local/bin" ]] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; the
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# .NET SDK
+if [[ -d "$HOME/.dotnet" ]]; then
+  export DOTNET_ROOT="$HOME/.dotnet"
+  export PATH="$PATH:$HOME/.dotnet:$HOME/.dotnet/tools"
+fi
+
 # ------------------------------------------------------------------------------
 # Modern CLI Tools Initialization (fnm, uv, zoxide)
 # ------------------------------------------------------------------------------
