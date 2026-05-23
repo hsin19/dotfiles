@@ -180,7 +180,6 @@ _setup_npm_packages() {
     # Define global npm packages to install/update
     local npm_packages=(
         "@anthropic-ai/claude-code"
-        "@google/gemini-cli"
         "@github/copilot"
         "@go-task/cli"
     )
@@ -195,6 +194,22 @@ _setup_npm_packages() {
     done
 
     echo "✅ npm packages setup completed!"
+}
+
+_setup_antigravity_cli() {
+    echo "Setting up Antigravity CLI..."
+
+    # Ensure ~/.local/bin is in PATH for the setup script context
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
+    if command -v agy &>/dev/null; then
+        echo "✅ Antigravity CLI (agy) is already installed."
+    else
+        echo "Installing Antigravity CLI..."
+        curl -fsSL https://antigravity.google/cli/install.sh | bash
+    fi
 }
 
 # ============================================================================
@@ -253,6 +268,7 @@ main() {
     _setup_zsh
     _setup_git_identities
     _setup_npm_packages
+    _setup_antigravity_cli
 
     echo ""
     echo "🎉 All done! Your development environment is ready."

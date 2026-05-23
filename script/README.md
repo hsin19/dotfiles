@@ -74,7 +74,7 @@ These are configured by the main [`setup`](./setup) script after platform-specif
 
 - **Zsh**: Oh My Zsh + Powerlevel10k + plugins
 - **Git**: Global config, aliases, per-directory identities
-- **npm**: Global packages (@anthropic-ai/claude-code, @google/gemini-cli, @github/copilot, @go-task/cli)
+- **npm**: Global packages (@anthropic-ai/claude-code, @github/copilot, @go-task/cli)
 
 ## Common Operations
 

@@ -228,21 +228,20 @@ EOF
     '
 }
 
-# Try Gemini CLI
-_try_gemini() {
+# Try Antigravity CLI
+_try_agy() {
     local custom_context="$1"
 
-    if ! command -v gemini >/dev/null 2>&1; then
+    if ! command -v agy >/dev/null 2>&1; then
         return 1
     fi
 
-    echo "ℹ️  Using Gemini CLI for AI generation..." >&2
+    echo "ℹ️  Using Antigravity CLI for AI generation..." >&2
 
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 4000)
 
-    # gemini cli 0.7.0 --allowed-tools has issues in non-interactive mode, so using diff directly
-    printf "%s" "$prompt" | _exec_cmd_with_stderr gemini
+    _exec_cmd_with_stderr agy --dangerously-skip-permissions -p "$prompt"
 }
 
 # Try OpenAI API
@@ -276,7 +275,7 @@ _try_openai() {
 _generate_ai_commit_message() {
     local custom_context="$1"
 
-    # Get LLM service priority order from env var, default to claude,ccr,gemini,copilot,openai
+    # Get LLM service priority order from env var, default to claude,ccr,agy,copilot,openai
     local llm_priority="${GIT_COMMIT_LLM_PRIORITY:-}"
 
     if [ -z "$llm_priority" ]; then
@@ -285,7 +284,7 @@ _generate_ai_commit_message() {
 
     # Default if still empty
     if [ -z "$llm_priority" ]; then
-        llm_priority="claude,ccr,gemini,copilot,openai"
+        llm_priority="claude,ccr,agy,copilot,openai"
     fi
 
     # Try LLM services in priority order
@@ -311,8 +310,8 @@ _generate_ai_commit_message() {
                     break
                 fi
                 ;;
-            gemini)
-                if ai_message=$(_try_gemini "$custom_context"); then
+            agy)
+                if ai_message=$(_try_agy "$custom_context"); then
                     break
                 fi
                 ;;
