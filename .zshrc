@@ -40,15 +40,14 @@ fi
 # ------------------------------------------------------------------------------
 # FNM: Node Version Manager (lazy load for instant prompt compatibility)
 if command -v fnm >/dev/null 2>&1; then
-  _fnm_lazy_load() {
-    unset -f node npm npx yarn pnpm 2>/dev/null
-    eval "$(fnm env --use-on-cd --shell zsh)"
-  }
-  node()  { _fnm_lazy_load; node  "$@" }
-  npm()   { _fnm_lazy_load; npm   "$@" }
-  npx()   { _fnm_lazy_load; npx   "$@" }
-  yarn()  { _fnm_lazy_load; yarn  "$@" }
-  pnpm()  { _fnm_lazy_load; pnpm  "$@" }
+  for _c in node npm npx yarn pnpm; do
+    eval "${_c}() {
+      unset -f node npm npx yarn pnpm 2>/dev/null
+      eval \"\$(fnm env --use-on-cd)\"
+      command ${_c} \"\$@\"
+    }"
+  done
+  unset _c
 fi
 
 # UV: Python Package Manager (with auto-completion)
