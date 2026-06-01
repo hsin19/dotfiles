@@ -2,7 +2,7 @@
 
 font-family = "FiraCode Nerd Font Mono"
 theme = Catppuccin Mocha
-background-opacity = 0.8
+background-opacity = 0.9
 background-blur = macos-glass-clear
 copy-on-select = clipboard
 confirm-close-surface = false
