@@ -179,7 +179,6 @@ _setup_npm_packages() {
 
     # Define global npm packages to install/update
     local npm_packages=(
-        "@anthropic-ai/claude-code"
         "@github/copilot"
         "@go-task/cli"
     )
@@ -194,6 +193,22 @@ _setup_npm_packages() {
     done
 
     echo "✅ npm packages setup completed!"
+}
+
+_setup_claude_cli() {
+    echo "Setting up Claude Code CLI..."
+
+    # Ensure ~/.local/bin is in PATH for the setup script context
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
+    if command -v claude &>/dev/null; then
+        echo "✅ Claude Code CLI (claude) is already installed."
+    else
+        echo "Installing Claude Code CLI..."
+        curl -fsSL https://claude.ai/install.sh | bash
+    fi
 }
 
 _setup_antigravity_cli() {
@@ -268,6 +283,7 @@ main() {
     _setup_zsh
     _setup_git_identities
     _setup_npm_packages
+    _setup_claude_cli
     _setup_antigravity_cli
 
     echo ""

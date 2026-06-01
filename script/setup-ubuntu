@@ -26,6 +26,9 @@ _install_apt_packages() {
         # Shell
         zsh
 
+        # Search tool like grep and The Silver Searcher
+        ripgrep
+
         # System monitoring
         btop
     )

@@ -1,7 +1,8 @@
 # https://ghostty.org/docs/config/reference
 
 theme = Catppuccin Mocha
-background-opacity = 0.95
+background-opacity = 0.8
+background-blur = macos-glass-clear
 copy-on-select = clipboard
 confirm-close-surface = false
 quit-after-last-window-closed = true

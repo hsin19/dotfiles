@@ -12,6 +12,8 @@ brew "fnm"
 brew "git"
 # Open-source, cross-platform JavaScript runtime environment
 brew "node"
+# Search tool like grep and The Silver Searcher
+brew "ripgrep"
 # Extremely fast Python package installer and resolver, written in Rust
 brew "uv"
 # Internet file retriever
@@ -20,7 +22,7 @@ brew "wget"
 brew "zoxide"
 # UNIX shell (command interpreter)
 brew "zsh"
-# AI Coding Agent IDE
+# Agent orchestration platform
 cask "antigravity"
 cask "font-fira-code"
 # GIT client
