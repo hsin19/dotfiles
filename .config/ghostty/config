@@ -1,5 +1,6 @@
 # https://ghostty.org/docs/config/reference
 
+font-family = "FiraCode Nerd Font Mono"
 theme = Catppuccin Mocha
 background-opacity = 0.8
 background-blur = macos-glass-clear

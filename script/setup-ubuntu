@@ -26,8 +26,10 @@ _install_apt_packages() {
         # Shell
         zsh
 
-        # Search tool like grep and The Silver Searcher
+        # Modern CLI replacements (binaries: rg, fdfind, batcat)
         ripgrep
+        fd-find
+        bat
 
         # System monitoring
         btop

@@ -1,3 +1,5 @@
+# Clone of cat(1) with syntax highlighting and Git integration
+brew "bat"
 # Container runtimes on MacOS (and Linux) with minimal setup
 brew "colima"
 # Pack, ship and run any application as a lightweight container
@@ -6,6 +8,8 @@ brew "docker"
 brew "docker-compose"
 # Modern, maintained replacement for ls
 brew "eza"
+# Simple, fast and user-friendly alternative to find
+brew "fd"
 # Fast and simple Node.js version manager
 brew "fnm"
 # Distributed revision control system
@@ -24,7 +28,7 @@ brew "zoxide"
 brew "zsh"
 # Agent orchestration platform
 cask "antigravity"
-cask "font-fira-code"
+cask "font-fira-code-nerd-font"
 # GIT client
 cask "fork"
 # Terminal emulator that uses platform-native UI and GPU acceleration

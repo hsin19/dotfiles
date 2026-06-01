@@ -57,8 +57,9 @@ Managed through [`Brewfile`](./Brewfile) - includes development tools, GUI apps,
 
 **APT Packages:**
 
-- Build tools: `build-essential`, `curl`, `wget`, `jq`
+- Build tools: `build-essential`, `curl`, `wget`, `gnupg`, `ca-certificates`, `git`, `jq`
 - Shell: `zsh`
+- Search/view: `ripgrep`, `fd-find`, `bat`
 - System: `btop`
 
 **Modern CLI Tools:**
@@ -74,7 +75,8 @@ These are configured by the main [`setup`](./setup) script after platform-specif
 
 - **Zsh**: Oh My Zsh + Powerlevel10k + plugins
 - **Git**: Global config, aliases, per-directory identities
-- **npm**: Global packages (@anthropic-ai/claude-code, @github/copilot, @go-task/cli)
+- **npm**: Global packages (@github/copilot, @go-task/cli)
+- **AI CLIs**: Claude Code (`claude`) and Antigravity (`agy`) via their official install scripts
 
 ## Common Operations
 
