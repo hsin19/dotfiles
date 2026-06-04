@@ -58,7 +58,8 @@ _install_modern_cli_tools() {
         echo "✅ eza already installed"
     fi
 
-    # FNM (Fast Node Manager)
+    # FNM (Fast Node Manager) - Node.js itself is installed later by the
+    # shared _setup_node step in `setup` (single source of truth).
     if ! command -v fnm &>/dev/null; then
         echo "Installing fnm..."
         curl -fsSL https://fnm.vercel.app/install | bash
@@ -66,18 +67,6 @@ _install_modern_cli_tools() {
         export PATH="$HOME/.local/share/fnm:$PATH"
     else
         echo "✅ fnm already installed"
-    fi
-
-    # Install Node.js LTS via fnm if not already installed
-    if command -v fnm &>/dev/null; then
-        eval "$(fnm env)"
-        if ! command -v node &>/dev/null; then
-            echo "Installing Node.js LTS via fnm..."
-            fnm install --lts
-            fnm default lts-latest
-        else
-            echo "✅ Node.js already installed ($(node --version))"
-        fi
     fi
 
     # Zoxide (smarter cd)
@@ -94,6 +83,14 @@ _install_modern_cli_tools() {
         curl -fsSL https://astral.sh/uv/install.sh | sh
     else
         echo "✅ uv already installed"
+    fi
+
+    # Task (task runner) - macOS uses brew go-task; Ubuntu uses the official installer
+    if ! command -v task &>/dev/null; then
+        echo "Installing task..."
+        sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -b "$HOME/.local/bin"
+    else
+        echo "✅ task already installed"
     fi
 
     echo "✅ Modern CLI tools installed"

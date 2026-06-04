@@ -169,30 +169,46 @@ _setup_zsh() {
     echo "✅ Oh My Zsh and plugins installed."
 }
 
-_setup_npm_packages() {
-    echo "Setting up npm packages..."
+_setup_node() {
+    echo "Setting up Node.js (via fnm)..."
 
-    if ! command -v npm &> /dev/null; then
-        echo "❌ npm not found, please install Node.js first."
+    if ! command -v fnm &> /dev/null; then
+        echo "❌ fnm not found, cannot install Node.js. Skipping."
         return 1
     fi
 
-    # Define global npm packages to install/update
-    local npm_packages=(
-        "@github/copilot"
-        "@go-task/cli"
-    )
+    # fnm is the single source of truth for Node (no brew/system node).
+    eval "$(fnm env)"
 
-    echo "Installing/updating global npm packages..."
+    if ! command -v node &> /dev/null; then
+        echo "Installing Node.js LTS via fnm..."
+        fnm install --lts
+        fnm default lts-latest
+        eval "$(fnm env)"
+    else
+        echo "✅ Node.js already installed ($(node --version))"
+    fi
+}
 
-    npm update -g npm
+_setup_corepack() {
+    echo "Enabling Corepack (pnpm/yarn shims)..."
 
-    for package in "${npm_packages[@]}"; do
-        echo "Installing/updating $package..."
-        npm install -g "$package@latest"
-    done
+    # Homebrew's `node` formula does not ship corepack; the fnm-managed Node
+    # does. Load fnm's env so `corepack` resolves to the fnm Node bin.
+    if command -v fnm &> /dev/null; then
+        eval "$(fnm env)"
+    fi
 
-    echo "✅ npm packages setup completed!"
+    if ! command -v corepack &> /dev/null; then
+        echo "⚠️  corepack not found (requires Node.js >= 16.9). Skipping."
+        return 0
+    fi
+
+    # Corepack ships with Node and manages pnpm/yarn versions per-project,
+    # so they follow the active Node version instead of a global install.
+    corepack enable
+
+    echo "✅ Corepack enabled — run pnpm/yarn directly (auto-downloaded on first use)."
 }
 
 _setup_claude_cli() {
@@ -282,7 +298,8 @@ main() {
     # Run shared setup functions
     _setup_zsh
     _setup_git_identities
-    _setup_npm_packages
+    _setup_node
+    _setup_corepack
     _setup_claude_cli
     _setup_antigravity_cli
 

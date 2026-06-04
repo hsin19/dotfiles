@@ -40,9 +40,9 @@ fi
 # ------------------------------------------------------------------------------
 # FNM: Node Version Manager (lazy load for instant prompt compatibility)
 if command -v fnm >/dev/null 2>&1; then
-  for _c in node npm npx yarn pnpm; do
+  for _c in node npm npx yarn pnpm corepack; do
     eval "${_c}() {
-      unset -f node npm npx yarn pnpm 2>/dev/null
+      unset -f node npm npx yarn pnpm corepack 2>/dev/null
       eval \"\$(fnm env --use-on-cd)\"
       command ${_c} \"\$@\"
     }"

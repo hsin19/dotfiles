@@ -14,8 +14,8 @@ brew "fd"
 brew "fnm"
 # Distributed revision control system
 brew "git"
-# Open-source, cross-platform JavaScript runtime environment
-brew "node"
+# Task is a task runner/build tool that aims to be simpler and easier to use
+brew "go-task"
 # Search tool like grep and The Silver Searcher
 brew "ripgrep"
 # Extremely fast Python package installer and resolver, written in Rust
@@ -28,6 +28,11 @@ brew "zoxide"
 brew "zsh"
 # Agent orchestration platform
 cask "antigravity"
+# OpenAI's coding agent that runs in your terminal
+cask "codex"
+# Brings the power of Copilot coding agent directly to your terminal
+cask "copilot-cli"
+cask "font-fira-code"
 cask "font-fira-code-nerd-font"
 # GIT client
 cask "fork"

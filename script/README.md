@@ -30,7 +30,7 @@ graph TB
         L --> M
         M --> N[Oh My Zsh + plugins]
         M --> O[Git config + identities]
-        M --> P[npm packages]
+        M --> P[Corepack + global CLIs]
     end
 ```
 
@@ -68,6 +68,7 @@ Managed through [`Brewfile`](./Brewfile) - includes development tools, GUI apps,
 - `fnm` - Fast Node Manager
 - `zoxide` - Smarter cd
 - `uv` - Python package manager
+- `task` - Task runner (via taskfile.dev installer into `~/.local/bin`)
 
 ## Shared Configuration (Cross-platform)
 
@@ -75,7 +76,9 @@ These are configured by the main [`setup`](./setup) script after platform-specif
 
 - **Zsh**: Oh My Zsh + Powerlevel10k + plugins
 - **Git**: Global config, aliases, per-directory identities
-- **npm**: Global packages (@github/copilot, @go-task/cli)
+- **Node.js**: Installed and version-managed by `fnm` (single source of truth; no Homebrew/system node). `fnm --use-on-cd` auto-switches versions per project.
+- **Corepack**: Enables `pnpm`/`yarn` shims bound to the active Node version
+- **Dev CLIs**: `task` (macOS: Homebrew `go-task`; Ubuntu: taskfile.dev installer) and GitHub Copilot CLI (macOS: Homebrew `copilot-cli` cask)
 - **AI CLIs**: Claude Code (`claude`) and Antigravity (`agy`) via their official install scripts
 
 ## Common Operations
@@ -83,7 +86,7 @@ These are configured by the main [`setup`](./setup) script after platform-specif
 ### Sync Homebrew packages (macOS)
 
 ```sh
-brew bundle dump --file=script/Brewfile --force --describe --no-vscode
+brew bundle dump --file=script/Brewfile --force --describe --no-vscode --no-npm
 ```
 
 ### Add configuration files
