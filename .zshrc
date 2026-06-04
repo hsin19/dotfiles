@@ -40,6 +40,12 @@ fi
 # ------------------------------------------------------------------------------
 # FNM: Node Version Manager (lazy load for instant prompt compatibility)
 if command -v fnm >/dev/null 2>&1; then
+  _fnm_default_bin="${FNM_DIR:-$HOME/.local/share/fnm}/aliases/default/bin"
+  if [[ -d "$_fnm_default_bin" ]] && [[ ":$PATH:" != *":$_fnm_default_bin:"* ]]; then
+    export PATH="$_fnm_default_bin:$PATH"
+  fi
+  unset _fnm_default_bin
+
   for _c in node npm npx yarn pnpm corepack; do
     eval "${_c}() {
       unset -f node npm npx yarn pnpm corepack 2>/dev/null
