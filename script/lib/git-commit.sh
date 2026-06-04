@@ -346,6 +346,22 @@ _generate_ai_commit_message() {
         return 1
     fi
 
+    # Drop any preamble before the first Conventional Commits subject line.
+    # Some models prepend an explanatory paragraph before the actual message;
+    # keep everything from the subject line onward (so the body is preserved).
+    local cc_types='feat|fix|docs|style|refactor|test|chore|perf|build|ci|revert'
+    local filtered
+    filtered=$(printf '%s\n' "$ai_message" | awk -v types="$cc_types" '
+        BEGIN { pattern = "^(" types ")(\\([^)]*\\))?!?:[[:space:]]" }
+        !found && $0 ~ pattern { found = 1 }
+        found { print }
+    ')
+    # Only use the filtered result if a subject line was actually found,
+    # otherwise fall back to the original to avoid emptying the message.
+    if [ -n "$filtered" ]; then
+        ai_message="$filtered"
+    fi
+
     echo "$ai_message"
 }
 
