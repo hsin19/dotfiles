@@ -209,6 +209,19 @@ _setup_corepack() {
     corepack enable
 
     echo "✅ Corepack enabled — run pnpm/yarn directly (auto-downloaded on first use)."
+
+    # zsh ships a built-in _npm completion but not _pnpm. Pre-generate pnpm's
+    # zsh completion to a cache file so .zshrc can load it cheaply at startup.
+    if command -v pnpm &> /dev/null; then
+        local comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+        mkdir -p "$comp_dir"
+        if pnpm completion zsh > "$comp_dir/pnpm-completion.zsh" 2>/dev/null; then
+            echo "✅ Generated pnpm zsh completion → $comp_dir/pnpm-completion.zsh"
+        else
+            echo "⚠️  Failed to generate pnpm completion. Skipping."
+            rm -f "$comp_dir/pnpm-completion.zsh"
+        fi
+    fi
 }
 
 _setup_claude_cli() {
