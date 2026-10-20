@@ -11,23 +11,41 @@ dotfiles() {
     git --git-dir="$HOME/.dotfiles/" --work-tree="$HOME" "$@"
 }
 
+# Run system commands as root only when needed: no prefix when already root,
+# sudo when available. bootstrap runs as a single file before the repo is
+# checked out, so it can't source script/lib; this is inlined (setup-ubuntu
+# has its own copy).
+if [ "$(id -u)" -eq 0 ]; then
+    SUDO=""
+elif command -v sudo &>/dev/null; then
+    SUDO="sudo"
+else
+    SUDO=""
+    echo "⚠️  Not running as root and 'sudo' not found; package installation may fail." >&2
+fi
+maybe_sudo() {
+    if [ -n "$SUDO" ]; then "$SUDO" "$@"; else "$@"; fi
+}
+
 # Install git if needed
 _install_git() {
-    # Check if git is already available
-    if command -v git &>/dev/null; then
-        echo "✅ Git already installed"
-        return 0
-    fi
-
-    # macOS: install Xcode Command Line Tools (includes git)
+    # macOS: /usr/bin/git is a Command Line Tools stub that exists even when CLT
+    # is not installed, so `command -v git` always succeeds. Check the real CLT
+    # path instead, otherwise the install flow below becomes dead code and the
+    # later `git clone` triggers a GUI prompt and fails on a truly fresh Mac.
     if [[ "$OSTYPE" == "darwin"* ]]; then
+        if xcode-select -p &>/dev/null && command -v git &>/dev/null; then
+            echo "✅ Git already installed (Xcode CLT present)"
+            return 0
+        fi
+
         echo "Installing Xcode Command Line Tools (includes Git)..."
         xcode-select --install 2>/dev/null || true
         echo "⏳ Please complete the Xcode CLT installation dialog, then press Enter..."
         if [[ -r /dev/tty ]]; then
             read -r < /dev/tty
         fi
-        if command -v git &>/dev/null; then
+        if xcode-select -p &>/dev/null && command -v git &>/dev/null; then
             echo "✅ Git installed via Xcode CLT"
             return 0
         else
@@ -36,11 +54,17 @@ _install_git() {
         fi
     fi
 
+    # Non-macOS: a real git on PATH is sufficient
+    if command -v git &>/dev/null; then
+        echo "✅ Git already installed"
+        return 0
+    fi
+
     # Linux: install git using apt
     if command -v apt-get &>/dev/null; then
         echo "Installing Git..."
-        sudo apt-get update
-        sudo apt-get install -y git
+        maybe_sudo apt-get update
+        maybe_sudo apt-get install -y git
         echo "✅ Git installed"
         return 0
     fi
@@ -67,6 +91,21 @@ _clone_dotfiles() {
     fi
 
     dotfiles config --local status.showUntrackedFiles no
+
+    # A bare clone has no fetch refspec, branch tracking, or reconcile strategy,
+    # so `dotfiles pull` fatals ("Need to specify how to reconcile divergent
+    # branches") the moment local and remote history diverge — leaving every
+    # `dotfilesup` stuck. Configure them so updates keep working. These live in
+    # .dotfiles/config and never touch the tracked $HOME work-tree.
+    local default_branch
+    default_branch=$(dotfiles symbolic-ref --short HEAD 2>/dev/null || echo "master")
+    dotfiles config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+    dotfiles config "branch.${default_branch}.remote" origin
+    dotfiles config "branch.${default_branch}.merge" "refs/heads/${default_branch}"
+    # Replay local commits on top of remote on pull, instead of a merge commit.
+    dotfiles config pull.rebase true
+    # Populate remote-tracking refs so the branch tracking above resolves.
+    dotfiles fetch origin --quiet 2>/dev/null || true
 }
 
 _handle_conflicts() {
@@ -76,7 +115,9 @@ _handle_conflicts() {
 
     local operation_backup_dir
     operation_backup_dir="$backup_dir/$operation-conflicts-$(date +%Y%m%d_%H%M%S)"
-    mkdir -p "$operation_backup_dir"
+    # Note: the backup dir is created lazily on the first real conflict (via the
+    # `mkdir -p "$(dirname "$dst")"` below), so a no-conflict run leaves no empty
+    # timestamped directory behind in ~/config-backup.
 
     local found=0
     while IFS= read -r raw; do
@@ -126,6 +167,13 @@ _checkout_dotfiles() {
                 echo "❌ Dotfiles checkout failed"
                 exit 1
             fi
+        else
+            # Failure was not a backable file conflict (corrupt repo, bad
+            # permissions, stale index.lock, ...). Surface the real git error
+            # and stop — never fall through and report success on an empty $HOME.
+            echo "❌ Dotfiles checkout failed:" >&2
+            echo "$checkout_output" >&2
+            exit 1
         fi
     else
         echo "✅ Dotfiles checked out successfully"
@@ -142,11 +190,26 @@ _checkout_dotfiles() {
                 if dotfiles pull; then
                     echo "✅ Dotfiles updated to latest version (conflicts backed up)"
                 else
-                    echo "⚠️ Still failed to pull updates after reset"
+                    echo "⚠️ Still failed to pull updates after reset" >&2
+                    exit 1
                 fi
+            else
+                # A real merge/rebase conflict: the CONFLICT / Auto-merging lines
+                # don't map to $HOME paths, so nothing was backed up and the
+                # work-tree is mid-merge (conflict markers + MERGE_HEAD). Abort
+                # so $HOME is left clean, then fail loudly.
+                echo "❌ Failed to pull updates (unresolved merge conflict):" >&2
+                echo "$pull_output" >&2
+                dotfiles merge --abort 2>/dev/null || dotfiles rebase --abort 2>/dev/null || true
+                exit 1
             fi
         else
-            echo "⚠️ Failed to pull latest updates: $pull_output"
+            # Non-conflict failure (network, diverged history that even
+            # pull.rebase can't reconcile, ...). Don't silently keep the old
+            # version and report success.
+            echo "⚠️ Failed to pull latest updates:" >&2
+            echo "$pull_output" >&2
+            exit 1
         fi
     else
         echo "✅ Dotfiles updated to latest version"
@@ -173,11 +236,13 @@ main() {
 
     # If setup not requested, ask the user
     if [ "$run_setup" = false ]; then
-        if [[ -t 0 ]]; then
+        # Use /dev/tty (not stdin) so the prompt works under the documented
+        # `curl -fsSL ... | bash` usage, where stdin is the pipe, not a terminal.
+        if [[ -r /dev/tty ]]; then
             echo ""
             read -p "Do you want to run the full setup script now? (y/N) " -n 1 -r < /dev/tty || true
             echo ""
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
+            if [[ ${REPLY:-} =~ ^[Yy]$ ]]; then
                 run_setup=true
             fi
         else
@@ -190,7 +255,8 @@ main() {
         if [ -f "$HOME/script/setup" ]; then
             bash "$HOME/script/setup"
         else
-            echo "❌ Setup script not found at $HOME/script/setup"
+            echo "❌ Setup script not found at $HOME/script/setup" >&2
+            exit 1
         fi
     fi
 }

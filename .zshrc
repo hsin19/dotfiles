@@ -39,6 +39,13 @@ fi
 # Modern CLI Tools Initialization (fnm, uv, zoxide)
 # ------------------------------------------------------------------------------
 # FNM: Node Version Manager (lazy load for instant prompt compatibility)
+# Put fnm's own install dir on PATH first. On Ubuntu the installer runs with
+# --skip-shell (it must not edit this tracked file), so nothing else adds it;
+# without this the `command -v fnm` check below fails and the entire Node block
+# is silently skipped. On macOS fnm comes from brew (already on PATH) — no-op.
+if [[ -d "$HOME/.local/share/fnm" ]] && [[ ":$PATH:" != *":$HOME/.local/share/fnm:"* ]]; then
+  export PATH="$HOME/.local/share/fnm:$PATH"
+fi
 if command -v fnm >/dev/null 2>&1; then
   _fnm_default_bin="${FNM_DIR:-$HOME/.local/share/fnm}/aliases/default/bin"
   if [[ -d "$_fnm_default_bin" ]] && [[ ":$PATH:" != *":$_fnm_default_bin:"* ]]; then

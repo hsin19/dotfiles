@@ -136,10 +136,25 @@ _setup_zsh() {
         return 1
     fi
 
-    # Install Oh My Zsh if it's not already installed
-    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    # Install Oh My Zsh if it's not already installed. Check for the actual
+    # entrypoint file, not just the directory: a failed installer can leave a
+    # bare ~/.oh-my-zsh behind (created as a side effect of cloning the custom
+    # plugins below into it), which a directory check would mistake for a
+    # complete install — so OMZ would never be retried on re-run.
+    if [ ! -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
         echo "Installing Oh My Zsh..."
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+        # Download first and check the exit code. `sh -c "$(curl ...)"` swallows
+        # curl failures: on error the substitution is empty and `sh -c ""`
+        # exits 0, which set -e cannot catch.
+        local omz_installer
+        if ! omz_installer=$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh); then
+            echo "❌ Failed to download Oh My Zsh installer"
+            return 1
+        fi
+        # --keep-zshrc: do NOT overwrite the repo's tracked ~/.zshrc with the OMZ
+        # template (which would silently disable Powerlevel10k, fnm lazy-load,
+        # etc.); --unattended alone would overwrite it without even prompting.
+        sh -c "$omz_installer" "" --unattended --keep-zshrc
     else
         echo "✅ Oh My Zsh is already installed."
     fi
@@ -173,20 +188,25 @@ _setup_node() {
     echo "Setting up Node.js (via fnm)..."
 
     if ! command -v fnm &> /dev/null; then
-        echo "❌ fnm not found, cannot install Node.js. Skipping."
+        echo "⚠️  fnm not found, cannot install Node.js. Skipping."
         return 1
     fi
 
     # fnm is the single source of truth for Node (no brew/system node).
     eval "$(fnm env)"
 
-    if ! command -v node &> /dev/null; then
+    # Check fnm's own default alias, not `command -v node`: any leftover system
+    # or brew node on PATH would short-circuit the install and leave fnm's
+    # aliases/default (which .zshrc relies on to put node on the interactive
+    # PATH) unbuilt — contradicting "fnm is the single source of truth".
+    local fnm_default="${FNM_DIR:-$HOME/.local/share/fnm}/aliases/default"
+    if [ ! -d "$fnm_default" ]; then
         echo "Installing Node.js LTS via fnm..."
         fnm install --lts
         fnm default lts-latest
         eval "$(fnm env)"
     else
-        echo "✅ Node.js already installed ($(node --version))"
+        echo "✅ Node.js already installed ($(node --version 2>/dev/null || echo 'via fnm'))"
     fi
 }
 
@@ -215,11 +235,20 @@ _setup_corepack() {
     if command -v pnpm &> /dev/null; then
         local comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
         mkdir -p "$comp_dir"
-        if pnpm completion zsh > "$comp_dir/pnpm-completion.zsh" 2>/dev/null; then
-            echo "✅ Generated pnpm zsh completion → $comp_dir/pnpm-completion.zsh"
+        local comp_file="$comp_dir/pnpm-completion.zsh"
+        # Warm up pnpm first. This is its first invocation, so corepack would
+        # download it now and (on a TTY) block on a confirmation prompt whose
+        # text we send to /dev/null — looking like a hang. Disable that prompt
+        # and isolate the download from the completion output below.
+        COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null 2>&1 || true
+        # Verify the output really is a completion script (#compdef header), so
+        # any stray corepack/download text doesn't get cached as a broken file.
+        if COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm completion zsh > "$comp_file" 2>/dev/null \
+            && grep -q '#compdef' "$comp_file"; then
+            echo "✅ Generated pnpm zsh completion → $comp_file"
         else
             echo "⚠️  Failed to generate pnpm completion. Skipping."
-            rm -f "$comp_dir/pnpm-completion.zsh"
+            rm -f "$comp_file"
         fi
     fi
 }
@@ -308,16 +337,27 @@ main() {
     echo "🔧 Running cross-platform setup..."
     echo ""
 
-    # Run shared setup functions
-    _setup_zsh
-    _setup_git_identities
-    _setup_node
-    _setup_corepack
-    _setup_claude_cli
-    _setup_antigravity_cli
+    # Run shared setup functions. Each step may fail without aborting the whole
+    # setup: under set -e a bare `_setup_x` that returns 1 (e.g. zsh/fnm missing)
+    # would kill the script mid-way with no summary, so the message ("Skipping")
+    # contradicts the actual behaviour (abort). Calling each in an `if !` context
+    # both suppresses that abort and lets us collect and report failures.
+    local failed_steps=()
+    local step
+    for step in _setup_zsh _setup_git_identities _setup_node _setup_corepack _setup_claude_cli _setup_antigravity_cli; do
+        if ! "$step"; then
+            echo "⚠️  Step failed: $step (continuing with remaining steps)"
+            failed_steps+=("$step")
+        fi
+    done
 
     echo ""
-    echo "🎉 All done! Your development environment is ready."
+    if [ ${#failed_steps[@]} -eq 0 ]; then
+        echo "🎉 All done! Your development environment is ready."
+    else
+        echo "⚠️  Setup finished with ${#failed_steps[@]} failed step(s): ${failed_steps[*]}"
+        echo "   Review the messages above and re-run 'script/setup' after fixing."
+    fi
     echo ""
     echo "📝 Next steps:"
     echo "  1. Restart your terminal or run: source ~/.zshrc"

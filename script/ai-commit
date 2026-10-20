@@ -49,15 +49,36 @@ _stage_files() {
         return 0
     fi
 
-    echo "ℹ️  No staged changes found. Staging all changes..."
-    git add .
+    # Refuse to auto-stage when the work-tree is $HOME itself. The global git
+    # alias `dotfiles ccc` exports GIT_WORK_TREE=$HOME, so a blind add here would
+    # sweep the entire home directory (~/.ssh, shell history, ~/.dotfiles) into
+    # the index and ship its diff to the AI. Require explicit staging instead.
+    local toplevel home_real top_real
+    toplevel=$(git rev-parse --show-toplevel 2>/dev/null || true)
+    if [ -n "$toplevel" ]; then
+        # Compare resolved physical paths: $HOME may be a symlink (e.g. /var ->
+        # /private/var on macOS) while git reports the resolved work-tree path.
+        home_real=$(cd "$HOME" 2>/dev/null && pwd -P || true)
+        top_real=$(cd "$toplevel" 2>/dev/null && pwd -P || true)
+        if [ -n "$home_real" ] && [ "$top_real" = "$home_real" ]; then
+            echo "❌ Refusing to auto-stage the whole home directory (bare dotfiles work-tree)." >&2
+            echo "   Stage explicitly first, e.g. 'dotfiles add <file>'." >&2
+            return 1
+        fi
+    fi
+
+    echo "ℹ️  No staged changes found. Staging tracked changes (git add -u)..."
+    # -u stages modifications/deletions of already-tracked files only — never
+    # untracked files (build output, .env, secrets). Run `git add` manually if
+    # you intend to include new files.
+    git add -u
 
     if git diff --cached --quiet; then
-        # Still no staged changes after git add
-        echo "❌ No changes to stage"
+        # Still no staged changes after git add -u
+        echo "❌ No tracked changes to stage (use 'git add' manually for new files)"
         return 1
     else
-        echo "✅ All changes staged"
+        echo "✅ Tracked changes staged"
         return 0
     fi
 }

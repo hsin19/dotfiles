@@ -15,7 +15,16 @@ echo "=============================="
 _install_homebrew() {
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
-        if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+        # Download first and check the exit code. `bash -c "$(curl ...)"`
+        # swallows curl failures: an empty substitution makes `bash -c ""` exit
+        # 0, so the `if` below would wrongly print success and only blow up later
+        # at `brew update`.
+        local brew_installer
+        if ! brew_installer=$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh); then
+            echo "❌ Failed to download Homebrew installer"
+            exit 1
+        fi
+        if /bin/bash -c "$brew_installer"; then
             echo "✅ Homebrew installed successfully"
 
             if [[ $(uname -m) == "arm64" ]]; then

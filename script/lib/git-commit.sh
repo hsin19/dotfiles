@@ -5,8 +5,17 @@ _extract_jira_ticket() {
     local branch_name
 
     branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-    # Match Jira ticket at start or after slash (e.g., ABC-123 or feature/ABC-123)
-    echo "$branch_name" | grep -oE '(^|/)[A-Z]{2,5}-[0-9]+' | sed 's|^/||' || echo ""
+    # Match a Jira key at the start or right after a slash (e.g. ABC-123 or
+    # feature/ABC-123). Take only the FIRST match: grep -o emits one line per
+    # match, so a branch like feature/ABC-123/DEF-456 would otherwise inject a
+    # newline into the subject. `awk NR==1` (not head -n1) reads all input so
+    # grep never gets SIGPIPE under pipefail. Widen the key to allow longer /
+    # alphanumeric project keys. `|| true` keeps a no-ticket branch exit 0.
+    printf '%s\n' "$branch_name" \
+        | grep -oE '(^|/)[A-Z][A-Z0-9]{1,9}-[0-9]+' \
+        | sed 's|^/||' \
+        | awk 'NR==1' \
+        || true
 }
 
 # Add Jira ticket to commit message
@@ -111,12 +120,30 @@ ${context_part}
 EOF
 }
 
+# Run a command with a timeout when a timeout binary is available; otherwise run
+# it directly. macOS ships neither `timeout` nor `gtimeout` by default, so a
+# missing binary must not break the call — the AI CLIs have their own internal
+# timeouts as a backstop.
+_with_timeout() {
+    local secs="$1"; shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$secs" "$@"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        gtimeout "$secs" "$@"
+    else
+        "$@"
+    fi
+}
+
 # Execute command and capture/display stderr on failure
 _exec_cmd_with_stderr() {
     local err_file
     err_file=$(mktemp)
 
-    if output=$("$@" 2>"$err_file"); then
+    # A hung or slow AI CLI would otherwise block `git commit` indefinitely.
+    # Cap each attempt (override with AI_COMMIT_TIMEOUT seconds); a timeout
+    # (exit 124) simply falls through to the next service in the priority list.
+    if output=$(_with_timeout "${AI_COMMIT_TIMEOUT:-120}" "$@" 2>"$err_file"); then
         rm -f "$err_file"
         printf '%s\n' "$output"
     else
@@ -241,7 +268,11 @@ _try_agy() {
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 4000)
 
-    _exec_cmd_with_stderr agy --dangerously-skip-permissions -p "$prompt"
+    # --sandbox (terminal restrictions) instead of --dangerously-skip-permissions:
+    # the prompt embeds up to 4000 lines of staged diff, which is untrusted input
+    # (vendored code, someone else's checked-out branch). Auto-approving every
+    # tool call would let prompt-injection text in that diff run arbitrary commands.
+    _exec_cmd_with_stderr agy --sandbox -p "$prompt"
 }
 
 # Try OpenAI API
@@ -257,11 +288,17 @@ _try_openai() {
     local prompt
     prompt=$(_build_commit_prompt "$custom_context" 500)
 
+    # gpt-5 reasoning models reject `max_tokens` and a non-default `temperature`
+    # on chat completions (HTTP 400). Use max_completion_tokens with headroom
+    # (reasoning tokens are billed against it) and a minimal reasoning effort.
     local payload
-    payload=$(jq -n --arg prompt "$prompt" '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_tokens:200, temperature:0.3}')
+    payload=$(jq -n --arg prompt "$prompt" '{model:"gpt-5-mini", messages:[{role:"user", content:$prompt}], max_completion_tokens:2048, reasoning_effort:"minimal"}')
 
+    # -sS: quiet but still surface transport errors (plain -s would also mute
+    # them). --fail-with-body: treat HTTP>=400 as failure yet keep the response
+    # body so the API's error message reaches stderr instead of vanishing.
     local response
-    if ! response=$(_exec_cmd_with_stderr curl -s -f -X POST "https://api.openai.com/v1/chat/completions" \
+    if ! response=$(_exec_cmd_with_stderr curl -sS --fail-with-body --max-time 60 -X POST "https://api.openai.com/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer ${OPENAI_API_KEY}" \
         -d "$payload"); then
@@ -332,23 +369,21 @@ _generate_ai_commit_message() {
         return 1
     fi
 
-    # Clean up response: remove whitespace, quotes, backticks from start/end
-    ai_message=$(echo "$ai_message" | sed -E "
-        s/^\`\`\`[a-z]*//;
-        s/\`\`\`$//;
-        s/^[[:space:]]+//;
-        s/[[:space:]]+$//;
-        s/^[\"'\`]+//;
-        s/[\"'\`]+$//;
-    ")
-    if [ -z "$ai_message" ]; then
-        echo "⚠️ AI generation produced empty result." >&2
-        return 1
-    fi
+    # Strip a markdown code fence if the model wrapped the whole message in one.
+    # Operate on the message as a BLOCK (only the first/last lines) — the old
+    # line-by-line quote/backtick sed corrupted body lines such as
+    # "- rename 'foo' to 'bar'" by shaving their leading/trailing quotes.
+    ai_message=$(printf '%s\n' "$ai_message" | awk '
+        NR==1 && /^[[:space:]]*```/ { next }                 # drop opening fence
+        { lines[++n] = $0 }
+        END {
+            if (n > 0 && lines[n] ~ /^[[:space:]]*```[[:space:]]*$/) n--  # trailing fence
+            for (i = 1; i <= n; i++) print lines[i]
+        }
+    ')
 
-    # Drop any preamble before the first Conventional Commits subject line.
-    # Some models prepend an explanatory paragraph before the actual message;
-    # keep everything from the subject line onward (so the body is preserved).
+    # Keep everything from the first Conventional Commits subject line onward,
+    # dropping any explanatory preamble some models prepend (body is preserved).
     local cc_types='feat|fix|docs|style|refactor|test|chore|perf|build|ci|revert'
     local filtered
     filtered=$(printf '%s\n' "$ai_message" | awk -v types="$cc_types" '
@@ -356,11 +391,16 @@ _generate_ai_commit_message() {
         !found && $0 ~ pattern { found = 1 }
         found { print }
     ')
-    # Only use the filtered result if a subject line was actually found,
-    # otherwise fall back to the original to avoid emptying the message.
-    if [ -n "$filtered" ]; then
-        ai_message="$filtered"
+
+    # No CC subject found -> the reply is unusable ("I cannot...", "Error:",
+    # prose, ...). Fail so the caller uses _generate_fallback_commit_message
+    # instead of committing the garbage verbatim (the old code fell back to the
+    # raw text here, letting malformed output through).
+    if [ -z "$filtered" ]; then
+        echo "⚠️ AI output had no Conventional Commits subject; discarding." >&2
+        return 1
     fi
+    ai_message="$filtered"
 
     echo "$ai_message"
 }
@@ -396,9 +436,13 @@ _generate_fallback_commit_message() {
     fi
 }
 
-# Function to generate/process commit message
+# Function to generate/process commit message.
+# $1: input message. $2: mode — "cli" (ai-commit) treats a leading "#" as an AI
+# prompt; "hook" (prepare-commit-msg) never does, so `git commit -m "#123 fix"`
+# is taken verbatim and only gets a Jira ticket prepended.
 generate_commit_message() {
     local commit_message="$1"
+    local mode="${2:-cli}"
     local processed_message
 
     # Check if there are staged changes (needed for AI and fallback)
@@ -417,8 +461,8 @@ generate_commit_message() {
         else
             echo "✅ AI generated message successfully" >&2
         fi
-    elif [[ "$commit_message" =~ ^#.* ]]; then
-        # Message starts with #, use as AI prompt
+    elif [ "$mode" = "cli" ] && [[ "$commit_message" =~ ^#.* ]]; then
+        # CLI only: a message starting with # is an AI prompt, not the message.
         local ai_prompt="${commit_message#\#}"  # Remove leading #
         echo "ℹ️  Using custom AI prompt: $ai_prompt" >&2
         if ! commit_message=$(_generate_ai_commit_message "$ai_prompt"); then

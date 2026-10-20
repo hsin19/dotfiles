@@ -22,7 +22,12 @@ Run this on a fresh machine:
 bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/master/script/bootstrap)
 ```
 
-The script will auto-detect your OS and set up everything automatically.
+It auto-detects your OS, deploys the dotfiles, then prompts to run the full
+setup. To skip the prompt and run setup non-interactively, append `-y`:
+
+```sh
+bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/master/script/bootstrap) -y
+```
 
 ## 📋 What Gets Installed
 
@@ -42,7 +47,7 @@ The script will auto-detect your OS and set up everything automatically.
 
 - Zsh + Oh My Zsh + Powerlevel10k theme
 - Git with per-directory identities
-- AI commit tools (Claude, Gemini, Copilot)
+- AI commit tools (Claude, CCR, Antigravity, Copilot, OpenAI — tried in order)
 
 ## 🛠️ Common Tasks
 

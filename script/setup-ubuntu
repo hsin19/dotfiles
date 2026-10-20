@@ -6,6 +6,22 @@
 
 set -euo pipefail
 
+# Run system commands as root only when needed: no prefix when already root
+# (common in fresh containers/cloud images), sudo when available. Avoids
+# hard-failing on `sudo: command not found`.
+if [ "$(id -u)" -eq 0 ]; then
+    SUDO=""
+elif command -v sudo &>/dev/null; then
+    SUDO="sudo"
+else
+    echo "❌ Not running as root and 'sudo' not found; cannot install apt packages." >&2
+    echo "   Re-run as root or install sudo first." >&2
+    exit 1
+fi
+maybe_sudo() {
+    if [ -n "$SUDO" ]; then "$SUDO" "$@"; else "$@"; fi
+}
+
 echo "🐧 Ubuntu Package Installation"
 echo "==============================="
 
@@ -35,8 +51,8 @@ _install_apt_packages() {
         btop
     )
 
-    sudo apt-get update || true
-    sudo apt-get install -y "${packages[@]}"
+    maybe_sudo apt-get update || true
+    maybe_sudo apt-get install -y "${packages[@]}"
 
     echo "✅ APT packages installed"
 }
@@ -48,12 +64,12 @@ _install_modern_cli_tools() {
     # Eza (modern ls)
     if ! command -v eza &>/dev/null; then
         echo "Installing eza..."
-        sudo mkdir -p /etc/apt/keyrings
-        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --yes --dearmor -o /etc/apt/keyrings/eza.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/eza.gpg] https://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/eza.list
-        sudo chmod 644 /etc/apt/keyrings/eza.gpg /etc/apt/sources.list.d/eza.list
-        sudo apt-get update || true
-        sudo apt-get install -y eza
+        maybe_sudo mkdir -p /etc/apt/keyrings
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | maybe_sudo gpg --yes --dearmor -o /etc/apt/keyrings/eza.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/eza.gpg] https://deb.gierens.de stable main" | maybe_sudo tee /etc/apt/sources.list.d/eza.list
+        maybe_sudo chmod 644 /etc/apt/keyrings/eza.gpg /etc/apt/sources.list.d/eza.list
+        maybe_sudo apt-get update || true
+        maybe_sudo apt-get install -y eza
     else
         echo "✅ eza already installed"
     fi
@@ -62,7 +78,10 @@ _install_modern_cli_tools() {
     # shared _setup_node step in `setup` (single source of truth).
     if ! command -v fnm &>/dev/null; then
         echo "Installing fnm..."
-        curl -fsSL https://fnm.vercel.app/install | bash
+        # --skip-shell: don't let the installer append PATH/eval lines to the
+        # tracked ~/.zshrc (or ~/.bashrc). PATH and fnm lazy-load are owned by
+        # the repo's .zshrc; an installer edit would dirty the bare-repo worktree.
+        curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
         # Add fnm to PATH for current session
         export PATH="$HOME/.local/share/fnm:$PATH"
     else
@@ -80,7 +99,10 @@ _install_modern_cli_tools() {
     # UV (Python package manager)
     if ! command -v uv &>/dev/null; then
         echo "Installing uv..."
-        curl -fsSL https://astral.sh/uv/install.sh | sh
+        # UV_NO_MODIFY_PATH=1: the installer otherwise appends a `. ".../env"`
+        # line to the tracked ~/.zshrc (it edits rc files unconditionally),
+        # dirtying the bare-repo worktree. .zshrc already adds ~/.local/bin.
+        curl -fsSL https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
     else
         echo "✅ uv already installed"
     fi
@@ -88,7 +110,15 @@ _install_modern_cli_tools() {
     # Task (task runner) - macOS uses brew go-task; Ubuntu uses the official installer
     if ! command -v task &>/dev/null; then
         echo "Installing task..."
-        sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -b "$HOME/.local/bin"
+        # Download first with -fsSL and check the exit code: the original
+        # `sh -c "$(curl --location ...)"` had no -f, so a 404/5xx HTML error
+        # page would be piped straight into sh, and curl failures were swallowed.
+        local task_installer
+        if task_installer=$(curl -fsSL https://taskfile.dev/install.sh); then
+            sh -c "$task_installer" -- -b "$HOME/.local/bin"
+        else
+            echo "⚠️  Failed to download task installer. Skipping."
+        fi
     else
         echo "✅ task already installed"
     fi

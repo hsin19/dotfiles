@@ -11,7 +11,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source library modules
 source "$SCRIPT_DIR/lib/env-loader.sh"
 source "$SCRIPT_DIR/lib/error-handler.sh"
-source "$SCRIPT_DIR/lib/git-utils.sh"
 source "$SCRIPT_DIR/lib/git-commit.sh"
 
 # Load environment variables
@@ -26,6 +25,15 @@ main() {
     local modified_msg
 
     setup_error_handling
+
+    # Opt-out without removing the hook: env var (AI_COMMIT_SKIP=1) for one-offs,
+    # or per-repo `git config dotfiles.ai.enabled false` to disable permanently.
+    if [ "${AI_COMMIT_SKIP:-0}" = "1" ]; then
+        exit 0
+    fi
+    if [ "$(git config --get --type=bool dotfiles.ai.enabled 2>/dev/null || true)" = "false" ]; then
+        exit 0
+    fi
 
     # Skip processing for merge commits, squash, etc.
     if [ -n "$commit_source" ] && [ "$commit_source" != "message" ]; then
@@ -59,25 +67,60 @@ main() {
         exit 1
     fi
 
-    # Extract input commit content based on commit_source
-    if [ -z "$commit_source" ]; then
-        # This is plain 'git commit' - remove Git's auto-generated comment lines
-        input_commit=$(echo "$original_msg" | grep -v '^#' | sed '/^\s*$/d' || true)
-    else
-        # This is user input (git commit -m), keep everything including lines starting with #
-        input_commit="$original_msg"
+    # Nothing staged (e.g. `git commit --allow-empty` to trigger CI, or an empty
+    # index): there's no diff to describe and the AI path would just fail and
+    # abort the commit. Leave the message untouched instead.
+    if git diff --cached --quiet 2>/dev/null; then
+        exit 0
     fi
 
-    if ! modified_msg=$(generate_commit_message "$input_commit"); then
+    # Comment char (default #) used for git's template/comment and scissors lines.
+    local comment_char
+    comment_char=$(git config --get core.commentChar 2>/dev/null || true)
+    [ -z "$comment_char" ] && comment_char="#"
+
+    # Truncate at the scissors line ("# ----- >8 -----"): under `git commit -v`
+    # everything below it is the staged diff, NOT user input. Without this the
+    # diff is treated as the message and, once we rewrite the file, committed
+    # verbatim. awk reads all input (no SIGPIPE) and stops at the first
+    # comment-prefixed line containing ">8".
+    local body
+    body=$(printf '%s\n' "$original_msg" | awk -v cc="$comment_char" '
+        substr($0, 1, length(cc)) == cc && index($0, ">8") { exit }
+        { print }
+    ')
+
+    # Extract input commit content based on commit_source
+    if [ -z "$commit_source" ]; then
+        # Plain 'git commit': drop git's comment lines and blank lines.
+        input_commit=$(printf '%s\n' "$body" | grep -v "^${comment_char}" | sed '/^[[:space:]]*$/d' || true)
+    else
+        # 'git commit -m': the message is user input (scissors/diff already
+        # stripped above); keep it verbatim.
+        input_commit=$(printf '%s' "$body")
+    fi
+
+    # mode=hook: never treat a leading "#" (e.g. an issue ref like "#123 fix")
+    # as an AI prompt — that's an ai-commit CLI convention, not git's.
+    if ! modified_msg=$(generate_commit_message "$input_commit" "hook"); then
         echo "Error: Failed to process commit message" >&2
         exit 1
     fi
 
-    # Only write to file if message has changed
+    # Only write to file if the message actually changed.
     if [ "$input_commit" != "$modified_msg" ]; then
-        if ! echo "$modified_msg" > "$commit_msg_file"; then
-            echo "Error: Failed to write commit message file" >&2
-            exit 1
+        # Re-append the original comment/scissors/diff tail (everything from the
+        # first comment line onward) so `git commit -v`'s diff preview survives;
+        # git strips it again with its own cleanup at commit time.
+        local msg_tail
+        msg_tail=$(printf '%s\n' "$original_msg" | awk -v cc="$comment_char" '
+            substr($0, 1, length(cc)) == cc { found = 1 }
+            found { print }
+        ')
+        if [ -n "$msg_tail" ]; then
+            printf '%s\n\n%s\n' "$modified_msg" "$msg_tail" > "$commit_msg_file"
+        else
+            printf '%s\n' "$modified_msg" > "$commit_msg_file"
         fi
     fi
 
