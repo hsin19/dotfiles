@@ -98,7 +98,7 @@ _clone_dotfiles() {
     # `dotfilesup` stuck. Configure them so updates keep working. These live in
     # .dotfiles/config and never touch the tracked $HOME work-tree.
     local default_branch
-    default_branch=$(dotfiles symbolic-ref --short HEAD 2>/dev/null || echo "master")
+    default_branch=$(dotfiles symbolic-ref --short HEAD 2>/dev/null || echo "main")
     dotfiles config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
     dotfiles config "branch.${default_branch}.remote" origin
     dotfiles config "branch.${default_branch}.merge" "refs/heads/${default_branch}"

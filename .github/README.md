@@ -19,14 +19,14 @@ One command to set up a fully configured development machine.
 Run this on a fresh machine:
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/master/script/bootstrap)
+bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/main/script/bootstrap)
 ```
 
 It auto-detects your OS, deploys the dotfiles, then prompts to run the full
 setup. To skip the prompt and run setup non-interactively, append `-y`:
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/master/script/bootstrap) -y
+bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/main/script/bootstrap) -y
 ```
 
 ## 📋 What Gets Installed
