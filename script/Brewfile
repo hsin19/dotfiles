@@ -44,8 +44,6 @@ cask "git-credential-manager"
 cask "microsoft-edge"
 # App to write, plan, collaborate, and get organised
 cask "notion"
-# .NET IDE
-cask "rider"
 # Snip or pin screenshots
 cask "snipaste"
 # Open-source code editor
