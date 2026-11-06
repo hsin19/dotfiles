@@ -49,11 +49,10 @@ _stage_files() {
         return 0
     fi
 
-    # Refuse to auto-stage when the work-tree is $HOME itself. The global git
-    # alias `dotfiles ccc` exports GIT_WORK_TREE=$HOME, so a blind add here would
-    # sweep the entire home directory (~/.ssh, shell history, ~/.dotfiles) into
-    # the index and ship its diff to the AI. Require explicit staging instead.
-    local toplevel home_real top_real
+    # When the work-tree is $HOME itself (`dotfiles ccc` exports
+    # GIT_WORK_TREE=$HOME), everything under home — ~/.ssh, shell history,
+    # ~/.dotfiles — is untracked, so only already-tracked changes are safe to add.
+    local toplevel home_real top_real add_flag="-A"
     toplevel=$(git rev-parse --show-toplevel 2>/dev/null || true)
     if [ -n "$toplevel" ]; then
         # Compare resolved physical paths: $HOME may be a symlink (e.g. /var ->
@@ -61,26 +60,30 @@ _stage_files() {
         home_real=$(cd "$HOME" 2>/dev/null && pwd -P || true)
         top_real=$(cd "$toplevel" 2>/dev/null && pwd -P || true)
         if [ -n "$home_real" ] && [ "$top_real" = "$home_real" ]; then
-            echo "❌ Refusing to auto-stage the whole home directory (bare dotfiles work-tree)." >&2
-            echo "   Stage explicitly first, e.g. 'dotfiles add <file>'." >&2
-            return 1
+            add_flag="-u"
         fi
     fi
 
-    echo "ℹ️  No staged changes found. Staging tracked changes (git add -u)..."
-    # -u stages modifications/deletions of already-tracked files only — never
-    # untracked files (build output, .env, secrets). Run `git add` manually if
-    # you intend to include new files.
-    git add -u
+    if [ "$add_flag" = "-u" ]; then
+        echo "ℹ️  No staged changes found. Staging tracked changes (git add -u)..."
+    else
+        echo "ℹ️  No staged changes found. Staging all changes (git add -A)..."
+    fi
+    git add "$add_flag"
 
     if git diff --cached --quiet; then
-        # Still no staged changes after git add -u
-        echo "❌ No tracked changes to stage (use 'git add' manually for new files)"
+        echo "❌ No changes to stage"
         return 1
-    else
-        echo "✅ Tracked changes staged"
-        return 0
     fi
+
+    local new_files
+    new_files=$(git diff --cached --name-only --diff-filter=A)
+    if [ -n "$new_files" ]; then
+        echo "➕ New files staged:"
+        printf '%s\n' "$new_files" | sed 's/^/   /'
+    fi
+    echo "✅ Changes staged"
+    return 0
 }
 
 # Main function
