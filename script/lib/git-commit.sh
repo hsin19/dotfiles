@@ -144,6 +144,11 @@ _exec_cmd_with_stderr() {
     # Cap each attempt (override with AI_COMMIT_TIMEOUT seconds); a timeout
     # (exit 124) simply falls through to the next service in the priority list.
     if output=$(_with_timeout "${AI_COMMIT_TIMEOUT:-120}" "$@" 2>"$err_file"); then
+        if [[ -z "${output//[[:space:]]/}" ]]; then
+            cat "$err_file" >&2
+            rm -f "$err_file"
+            return 1
+        fi
         rm -f "$err_file"
         printf '%s\n' "$output"
     else
@@ -266,13 +271,14 @@ _try_agy() {
     echo "ℹ️  Using Antigravity CLI for AI generation..." >&2
 
     local prompt
-    prompt=$(_build_commit_prompt "$custom_context" 4000)
+    prompt=$(_build_commit_prompt "$custom_context" 0)
 
-    # --sandbox (terminal restrictions) instead of --dangerously-skip-permissions:
-    # the prompt embeds up to 4000 lines of staged diff, which is untrusted input
-    # (vendored code, someone else's checked-out branch). Auto-approving every
-    # tool call would let prompt-injection text in that diff run arbitrary commands.
-    _exec_cmd_with_stderr agy --sandbox -p "$prompt"
+    # Scoped session-only settings: allow only read-only git inspection commands
+    # inside --sandbox and deny file writes, so untrusted staged diff content
+    # cannot trigger arbitrary commands or edits via prompt injection.
+    local agy_settings='{"agentMode":"","toolPermission":"request-review","permissions":{"allow":["command(git status)","command(git diff)","command(git log)","command(git show)"],"deny":["write_file(*)"]}}'
+
+    _exec_cmd_with_stderr agy --sandbox --disable-slash-commands --settings "$agy_settings" -p "$prompt"
 }
 
 # Try OpenAI API
