@@ -79,7 +79,7 @@ These are configured by the main [`setup`](./setup) script after platform-specif
 - **Node.js**: Installed and version-managed by `fnm` (single source of truth; no Homebrew/system node). `fnm --use-on-cd` auto-switches versions per project.
 - **Corepack**: Enables `pnpm`/`yarn` shims bound to the active Node version
 - **Dev CLIs**: `task` (macOS: Homebrew `go-task`; Ubuntu: taskfile.dev installer) and GitHub Copilot CLI (macOS: Homebrew `copilot-cli` cask)
-- **AI CLIs**: Claude Code (`claude`) and Antigravity (`agy`) via their official install scripts; each gets a custom status line (a thin `script/<cli>-statusline` wrapper over the shared renderer `script/lib/statusline.sh`) merged into its `settings.json`
+- **AI CLIs**: Claude Code (`claude`) and Antigravity (`agy`) via their official install scripts; each gets a custom status line (a thin `script/<cli>-statusline` wrapper over the shared renderer `script/lib/statusline.sh`) merged into its `settings.json`. Codex (`codex`) uses its native TUI status line, configured in `~/.codex/config.toml` with project, Git branch, model/reasoning, context, and usage-limit fields.
 
 ## Common Operations
 

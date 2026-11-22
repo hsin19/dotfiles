@@ -317,6 +317,41 @@ _setup_antigravity_cli() {
         '{"type": "command", "command": "bash ~/script/agy-statusline", "enabled": true}'
 }
 
+_setup_codex_statusline() {
+    # Codex renders its status line itself (there is no external command hook).
+    # Keep the same useful signals as the Claude/Agy lines while letting the TUI
+    # update context and account-limit values directly.
+    local settings_file="$HOME/.codex/config.toml"
+    local tmp_file
+    local status_line='status_line = ["project-name", "git-branch", "model", "reasoning", "context-used", "five-hour-limit", "weekly-limit", "thread-title"]'
+
+    mkdir -p "$(dirname "$settings_file")"
+    if [ ! -f "$settings_file" ]; then
+        printf '%s\n' '[tui]' "$status_line" 'status_line_use_colors = true' > "$settings_file"
+    elif grep -qE '^[[:space:]]*\[tui\][[:space:]]*(#.*)?$' "$settings_file"; then
+        tmp_file=$(mktemp)
+        # Replace only values owned by this setup while preserving all other TOML
+        # sections and TUI preferences. Codex writes these entries as one-line arrays.
+        awk -v status_line="$status_line" '
+            /^[[:space:]]*\[tui\][[:space:]]*(#.*)?$/ {
+                in_tui = 1
+                print
+                print status_line
+                print "status_line_use_colors = true"
+                next
+            }
+            in_tui && /^[[:space:]]*\[/ { in_tui = 0 }
+            in_tui && /^[[:space:]]*(status_line|status_line_use_colors)[[:space:]]*=/ { next }
+            { print }
+        ' "$settings_file" > "$tmp_file"
+        mv "$tmp_file" "$settings_file"
+    else
+        printf '\n[tui]\n%s\nstatus_line_use_colors = true\n' "$status_line" >> "$settings_file"
+    fi
+
+    echo "✅ Configured Codex CLI native status line → $settings_file"
+}
+
 # ============================================================================
 # Main Execution
 # ============================================================================
@@ -376,7 +411,7 @@ main() {
     # both suppresses that abort and lets us collect and report failures.
     local failed_steps=()
     local step
-    for step in _setup_zsh _setup_git_identities _setup_node _setup_corepack _setup_claude_cli _setup_antigravity_cli; do
+    for step in _setup_zsh _setup_git_identities _setup_node _setup_corepack _setup_claude_cli _setup_antigravity_cli _setup_codex_statusline; do
         if ! "$step"; then
             echo "⚠️  Step failed: $step (continuing with remaining steps)"
             failed_steps+=("$step")
