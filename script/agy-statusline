@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Antigravity CLI status line command (mirrors Claude Code statusline-command.sh)
+# Antigravity CLI status line command (mirrors script/claude-statusline)
 # Format: <project>:<branch> | <model> | <effort> | C: <ctx%> | S: <session%>(reset <time>) | W: <weekly%>(reset <time>) | <HH:MM>
 
 input=$(cat)

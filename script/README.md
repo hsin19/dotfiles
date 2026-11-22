@@ -79,7 +79,7 @@ These are configured by the main [`setup`](./setup) script after platform-specif
 - **Node.js**: Installed and version-managed by `fnm` (single source of truth; no Homebrew/system node). `fnm --use-on-cd` auto-switches versions per project.
 - **Corepack**: Enables `pnpm`/`yarn` shims bound to the active Node version
 - **Dev CLIs**: `task` (macOS: Homebrew `go-task`; Ubuntu: taskfile.dev installer) and GitHub Copilot CLI (macOS: Homebrew `copilot-cli` cask)
-- **AI CLIs**: Claude Code (`claude`) and Antigravity (`agy`) via their official install scripts
+- **AI CLIs**: Claude Code (`claude`) and Antigravity (`agy`) via their official install scripts; each gets a matching custom status line (`script/claude-statusline` / `script/agy-statusline`) merged into its `settings.json`
 
 ## Common Operations
 

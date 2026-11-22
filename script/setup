@@ -253,6 +253,32 @@ _setup_corepack() {
     fi
 }
 
+# Set .statusLine in a CLI's settings.json without overwriting machine-local keys
+# (permissions, model, trustedWorkspaces, etc.).
+# Usage: _configure_statusline <label> <settings_file> <statusLine JSON>
+_configure_statusline() {
+    local label="$1" settings_file="$2" status_line="$3"
+    local tmp_file
+
+    if ! command -v jq &>/dev/null; then
+        echo "⚠️  jq not found; skipping $label statusLine configuration."
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$settings_file")"
+    if [ ! -f "$settings_file" ]; then
+        echo '{}' > "$settings_file"
+    fi
+    tmp_file=$(mktemp)
+    if jq --argjson sl "$status_line" '.statusLine = $sl' "$settings_file" > "$tmp_file"; then
+        mv "$tmp_file" "$settings_file"
+        echo "✅ Configured $label statusLine → $(jq -r '.command' <<<"$status_line")"
+    else
+        rm -f "$tmp_file"
+        echo "⚠️  Failed to update $settings_file (invalid JSON?); skipping statusLine config."
+    fi
+}
+
 _setup_claude_cli() {
     echo "Setting up Claude Code CLI..."
 
@@ -267,6 +293,9 @@ _setup_claude_cli() {
         echo "Installing Claude Code CLI..."
         curl -fsSL https://claude.ai/install.sh | bash
     fi
+
+    _configure_statusline "Claude Code CLI" "$HOME/.claude/settings.json" \
+        '{"type": "command", "command": "bash ~/script/claude-statusline"}'
 }
 
 _setup_antigravity_cli() {
@@ -284,27 +313,8 @@ _setup_antigravity_cli() {
         curl -fsSL https://antigravity.google/cli/install.sh | bash
     fi
 
-    # Configure custom status line in settings.json without overwriting machine-local keys
-    # (trustedWorkspaces, permissions, model, etc.).
-    if command -v jq &>/dev/null; then
-        local settings_file="$HOME/.gemini/antigravity-cli/settings.json"
-        local tmp_file
-        mkdir -p "$(dirname "$settings_file")"
-        if [ ! -f "$settings_file" ]; then
-            echo '{}' > "$settings_file"
-        fi
-        tmp_file=$(mktemp)
-        if jq '.statusLine = {"type": "command", "command": "bash ~/script/agy-statusline", "enabled": true}' \
-            "$settings_file" > "$tmp_file"; then
-            mv "$tmp_file" "$settings_file"
-            echo "✅ Configured Antigravity CLI statusLine → ~/script/agy-statusline"
-        else
-            rm -f "$tmp_file"
-            echo "⚠️  Failed to update $settings_file (invalid JSON?); skipping statusLine config."
-        fi
-    else
-        echo "⚠️  jq not found; skipping Antigravity CLI statusLine configuration."
-    fi
+    _configure_statusline "Antigravity CLI" "$HOME/.gemini/antigravity-cli/settings.json" \
+        '{"type": "command", "command": "bash ~/script/agy-statusline", "enabled": true}'
 }
 
 # ============================================================================
