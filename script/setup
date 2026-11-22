@@ -283,6 +283,28 @@ _setup_antigravity_cli() {
         echo "Installing Antigravity CLI..."
         curl -fsSL https://antigravity.google/cli/install.sh | bash
     fi
+
+    # Configure custom status line in settings.json without overwriting machine-local keys
+    # (trustedWorkspaces, permissions, model, etc.).
+    if command -v jq &>/dev/null; then
+        local settings_file="$HOME/.gemini/antigravity-cli/settings.json"
+        local tmp_file
+        mkdir -p "$(dirname "$settings_file")"
+        if [ ! -f "$settings_file" ]; then
+            echo '{}' > "$settings_file"
+        fi
+        tmp_file=$(mktemp)
+        if jq '.statusLine = {"type": "command", "command": "bash ~/script/agy-statusline", "enabled": true}' \
+            "$settings_file" > "$tmp_file"; then
+            mv "$tmp_file" "$settings_file"
+            echo "✅ Configured Antigravity CLI statusLine → ~/script/agy-statusline"
+        else
+            rm -f "$tmp_file"
+            echo "⚠️  Failed to update $settings_file (invalid JSON?); skipping statusLine config."
+        fi
+    else
+        echo "⚠️  jq not found; skipping Antigravity CLI statusLine configuration."
+    fi
 }
 
 # ============================================================================
