@@ -182,7 +182,23 @@ _checkout_dotfiles() {
     # Pull latest changes
     echo "Pulling latest dotfiles updates..."
     if ! pull_output=$(dotfiles pull 2>&1); then
-        # Check if it's a merge conflict
+        # With pull.rebase=true, git refuses to pull if tracked files in $HOME
+        # have local edits (staged or unstaged) without listing them in stderr.
+        # Back up any modified tracked files and reset to HEAD so pull can proceed.
+        if echo "$pull_output" | grep -q "cannot pull with rebase:"; then
+            local dirty_files
+            dirty_files=$(dotfiles -c core.quotepath=false diff --name-only HEAD 2>/dev/null || true)
+            if [ -n "$dirty_files" ]; then
+                _handle_conflicts "pull" "$dirty_files" || true
+                dotfiles reset --hard HEAD
+                if pull_output=$(dotfiles pull 2>&1); then
+                    echo "✅ Dotfiles updated to latest version (local changes backed up)"
+                    return 0
+                fi
+            fi
+        fi
+
+        # Check if it's a merge/overwrite conflict
         if echo "$pull_output" | grep -q "would be overwritten\|Merge conflict"; then
             if _handle_conflicts "pull" "$pull_output"; then
                 # Reset and pull again
