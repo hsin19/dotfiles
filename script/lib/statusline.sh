@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Shared status line renderer for AI CLIs. Each CLI has a thin wrapper script that sources this.
 #
-# Output: <project>:<branch> | <model> | <effort> | C: <ctx%> | S: <short%>(reset <t>) | W: <weekly%>(reset <t>) | <HH:MM>
+# Output: <project>:<branch> | <model> | <effort> | C: <ctx%> | S: <short%>(reset <t>) | W: <weekly%>(reset <t>) | <HH:MM> | <title>
 #
 # A wrapper only maps its CLI's stdin JSON into a common shape:
 #   statusline_main '<jq filter>'
 # The filter runs against the CLI's JSON (with $now = current epoch seconds) and must emit
-#   {model, effort, short_pct, short_reset, week_pct, week_reset}
-# where *_pct is used percentage (0-100) and *_reset is seconds until reset; any may be null.
+#   {model, effort, short_pct, short_reset, week_pct, week_reset, title}
+# where *_pct is used percentage (0-100), *_reset is seconds until reset, and title is the
+# session/thread title (shown last since its length varies); any may be null.
 # Common fields (workspace, session id, context window) are read here.
 
 RESET="\033[0m"
@@ -69,13 +70,13 @@ _statusline_quota() {
 
 statusline_main() {
   local normalize="$1"
-  local input project cwd session_id ctx_used model effort short_pct short_reset week_pct week_reset
+  local input project cwd session_id ctx_used model effort short_pct short_reset week_pct week_reset title
   local field branch session_label status_file out ec
   input=$(cat)
 
   # One jq pass for common + CLI-specific fields. Missing values become "-" so the
   # tab-separated read keeps field positions (consecutive tabs would collapse).
-  IFS=$'\t' read -r project cwd session_id ctx_used model effort short_pct short_reset week_pct week_reset < <(
+  IFS=$'\t' read -r project cwd session_id ctx_used model effort short_pct short_reset week_pct week_reset title < <(
     printf '%s' "$input" | jq -r --argjson now "$(date +%s)" "def normalize:
 ${normalize}
 ;"'
@@ -92,13 +93,14 @@ ${normalize}
           $n.short_pct,
           ($n.short_reset | secs),
           $n.week_pct,
-          ($n.week_reset | secs)
+          ($n.week_reset | secs),
+          ($n.title | if type == "string" then gsub("[\\t\\n\\r]"; " ") else . end)
         ]
       | map(if . == null or . == "" then "-" else tostring end)
       | @tsv
     '
   )
-  for field in project cwd session_id ctx_used model effort short_pct short_reset week_pct week_reset; do
+  for field in project cwd session_id ctx_used model effort short_pct short_reset week_pct week_reset title; do
     if [ "${!field}" = "-" ]; then printf -v "$field" '%s' ""; fi
   done
 
@@ -158,4 +160,11 @@ ${normalize}
   out="${out} ${SEP} ${BLUE}$(date +%H:%M)${RESET}"
 
   printf "%b" "$out"
+
+  # Title — white, last. Printed with %s so it is never escape-interpreted;
+  # @tsv doubled any backslash, so undo that first.
+  if [ -n "$title" ]; then
+    title="${title//\\\\/\\}"
+    printf " %b %b%s%b" "$SEP" "$WHITE" "$title" "$RESET"
+  fi
 }

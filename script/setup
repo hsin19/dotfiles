@@ -323,7 +323,7 @@ _setup_codex_statusline() {
     # update context and account-limit values directly.
     local settings_file="$HOME/.codex/config.toml"
     local tmp_file
-    local status_line='status_line = ["project-name", "git-branch", "model", "reasoning", "context-used", "five-hour-limit", "weekly-limit", "thread-title"]'
+    local status_line='status_line = ["project-name", "git-branch", "model", "reasoning", "context-used", "five-hour-limit", "weekly-limit", "thread-name"]'
 
     mkdir -p "$(dirname "$settings_file")"
     if [ ! -f "$settings_file" ]; then

@@ -5,6 +5,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/statusline.sh"
 
 # Rate limits: five_hour -> S, seven_day -> W. Claude reports resets_at as an epoch,
 # so convert it to seconds until reset.
+# Title: session_name (/rename name, else the AI-generated title; absent until one exists).
 # shellcheck disable=SC2016  # $now etc. are jq variables, not shell
 statusline_main '
   def until_reset: if . == null then null else . - $now end;
@@ -14,6 +15,7 @@ statusline_main '
     short_pct: .rate_limits.five_hour.used_percentage,
     short_reset: (.rate_limits.five_hour.resets_at | until_reset),
     week_pct: .rate_limits.seven_day.used_percentage,
-    week_reset: (.rate_limits.seven_day.resets_at | until_reset)
+    week_reset: (.rate_limits.seven_day.resets_at | until_reset),
+    title: .session_name
   }
 '

@@ -5,6 +5,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/statusline.sh"
 
 # Quota buckets -> S (short/session) and W (weekly). Prefer buckets matching the
 # active model family (gemini/claude); otherwise pick the highest usage per window.
+# Title: conversation_title (with session_name fallback; absent until one exists).
 # shellcheck disable=SC2016  # $effort etc. are jq variables, not shell
 statusline_main '
   (.model.effort // .effort.level) as $effort
@@ -40,6 +41,7 @@ statusline_main '
       short_pct: ($s | used_pct),
       short_reset: $s.value.reset_in_seconds,
       week_pct: ($w | used_pct),
-      week_reset: $w.value.reset_in_seconds
+      week_reset: $w.value.reset_in_seconds,
+      title: (.conversation_title // .session_name)
     }
 '
