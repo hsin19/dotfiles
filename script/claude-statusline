@@ -1,161 +1,19 @@
 #!/usr/bin/env bash
-# Claude Code status line command (mirrored by script/agy-statusline)
-# Format: <project>:<branch> | <model> | <effort> | C: <ctx%> | S: <5h%>(reset <time>) | W: <7d%>(reset <time>) | <HH:MM>
+# Claude Code status line: maps its stdin JSON into the shape lib/statusline.sh renders.
 
-input=$(cat)
+source "$(dirname "${BASH_SOURCE[0]}")/lib/statusline.sh"
 
-# ANSI color codes (identical to Antigravity CLI statusline)
-RESET="\033[0m"
-CYAN="\033[36m"
-GREEN="\033[32m"
-YELLOW="\033[33m"
-BLUE="\033[34m"
-WHITE="\033[37m"
-DIM="\033[2m"
-RED="\033[31m"
-ORANGE="\033[38;5;208m"
-SEP="${DIM}|${RESET}"
-
-# Project name: basename of project_dir
-project=$(printf '%s' "$input" | jq -r '.workspace.project_dir // .workspace.current_dir // .cwd // "."' | xargs basename)
-
-# Git branch from current_dir / cwd
-cwd=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // "."')
-branch=$(git -C "$cwd" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null)
-if [ -z "$branch" ]; then
-  branch=$(git -C "$cwd" --no-optional-locks rev-parse --short HEAD 2>/dev/null)
-fi
-
-# Session edit-context label (written by a PostToolUse track-edit hook).
-# When present it pinpoints the subsystem/task currently being edited
-# (e.g. "adminsite:uat", "task:Foo") and replaces the generic project:branch.
-session_id=$(printf '%s' "$input" | jq -r '.session_id // empty')
-session_label=""
-if [ -n "$session_id" ]; then
-  status_file="/tmp/claude_status_${session_id}"
-  if [ -f "$status_file" ]; then
-    session_label=$(jq -r '.label // empty' "$status_file" 2>/dev/null)
-  fi
-fi
-
-# Model display name & effort level (low/medium/high/xhigh/max); effort absent if model has no effort param
-model=$(printf '%s' "$input" | jq -r '.model.display_name // "Claude"')
-effort=$(printf '%s' "$input" | jq -r '.effort.level // empty')
-
-# Context used percentage
-ctx_used=$(printf '%s' "$input" | jq -r '.context_window.used_percentage // empty')
-
-# Rate limits -> S (5-hour session) and W (7-day weekly) used percentage + seconds until reset.
-# Claude reports resets_at as an epoch; convert to remaining seconds so the
-# formatting below stays identical to agy-statusline (which gets reset_in_seconds).
-read -r short_pct short_reset week_pct week_reset < <(
-  printf '%s' "$input" | jq -r --argjson now "$(date +%s)" '
-    def secs($r): if $r == null then "-" else (($r | floor) - $now) end;
-    [
-      (.rate_limits.five_hour.used_percentage // "-"),
-      secs(.rate_limits.five_hour.resets_at),
-      (.rate_limits.seven_day.used_percentage // "-"),
-      secs(.rate_limits.seven_day.resets_at)
-    ]
-    | @tsv
-  '
-)
-[ "$short_pct" = "-" ] && short_pct=""
-[ "$short_reset" = "-" ] && short_reset=""
-[ "$week_pct" = "-" ] && week_pct=""
-[ "$week_reset" = "-" ] && week_reset=""
-
-# Current time
-now=$(date +%H:%M)
-
-# Helper: format remaining seconds into XdYh, XhYm, or Ym
-format_reset_secs() {
-  local diff="$1"
-  if [ -z "$diff" ]; then return; fi
-  if [ "$diff" -le 0 ]; then
-    echo "now"
-    return
-  fi
-  local days=$(( diff / 86400 ))
-  local hours=$(( (diff % 86400) / 3600 ))
-  local mins=$(( (diff % 3600) / 60 ))
-  if [ "$days" -gt 0 ]; then
-    printf "%dd%dh" "$days" "$hours"
-  elif [ "$hours" -gt 0 ]; then
-    printf "%dh%dm" "$hours" "$mins"
-  else
-    printf "%dm" "$mins"
-  fi
-}
-
-# Helper: pick color for percentage (white < 70, orange 70-89, red >= 90)
-pct_color() {
-  local pct="$1"
-  local int_pct
-  int_pct=$(printf '%.0f' "$pct")
-  if [ "$int_pct" -ge 90 ]; then
-    printf "%s" "$RED"
-  elif [ "$int_pct" -ge 70 ]; then
-    printf "%s" "$ORANGE"
-  else
-    printf "%s" "$WHITE"
-  fi
-}
-
-# Build output with printf to handle escape sequences
-out=""
-
-# Edit-context label takes priority; otherwise project:branch — cyan project, green branch
-if [ -n "$session_label" ]; then
-  out="${CYAN}${session_label}${RESET}"
-elif [ -n "$branch" ]; then
-  out="${CYAN}${project}${RESET}:${GREEN}${branch}${RESET}"
-else
-  out="${CYAN}${project}${RESET}"
-fi
-
-# Model — yellow, followed by effort level (colored by intensity)
-out="${out} ${SEP} ${YELLOW}${model}${RESET}"
-if [ -n "$effort" ]; then
-  case "$effort" in
-    max)    ec="$RED" ;;
-    xhigh)  ec="$ORANGE" ;;
-    high)   ec="$YELLOW" ;;
-    medium) ec="$GREEN" ;;
-    *)      ec="$DIM" ;;
-  esac
-  out="${out} ${SEP} ${ec}${effort}${RESET}"
-fi
-
-# Context — white/orange/red depending on usage
-if [ -n "$ctx_used" ]; then
-  c=$(pct_color "$ctx_used")
-  out="${out} ${SEP} ${DIM}C:${RESET} ${c}$(printf '%.0f' "$ctx_used")%${RESET}"
-fi
-
-# Short / session quota (5-hour)
-if [ -n "$short_pct" ]; then
-  short_reset_str=$(format_reset_secs "$short_reset")
-  c=$(pct_color "$short_pct")
-  short_str="${DIM}S:${RESET} ${c}$(printf '%.0f' "$short_pct")%${RESET}"
-  if [ -n "$short_reset_str" ]; then
-    short_str="${short_str}${DIM}(reset ${short_reset_str})${RESET}"
-  fi
-  out="${out} ${SEP} ${short_str}"
-fi
-
-# Weekly quota (7-day)
-if [ -n "$week_pct" ]; then
-  week_reset_str=$(format_reset_secs "$week_reset")
-  c=$(pct_color "$week_pct")
-  week_str="${DIM}W:${RESET} ${c}$(printf '%.0f' "$week_pct")%${RESET}"
-  if [ -n "$week_reset_str" ]; then
-    week_str="${week_str}${DIM}(reset ${week_reset_str})${RESET}"
-  fi
-  out="${out} ${SEP} ${week_str}"
-fi
-
-# Time — blue
-out="${out} ${SEP} ${BLUE}${now}${RESET}"
-
-printf "%b" "$out"
+# Rate limits: five_hour -> S, seven_day -> W. Claude reports resets_at as an epoch,
+# so convert it to seconds until reset.
+# shellcheck disable=SC2016  # $now etc. are jq variables, not shell
+statusline_main '
+  def until_reset: if . == null then null else . - $now end;
+  {
+    model: (.model.display_name // "Claude"),
+    effort: .effort.level,
+    short_pct: .rate_limits.five_hour.used_percentage,
+    short_reset: (.rate_limits.five_hour.resets_at | until_reset),
+    week_pct: .rate_limits.seven_day.used_percentage,
+    week_reset: (.rate_limits.seven_day.resets_at | until_reset)
+  }
+'

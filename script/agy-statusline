@@ -1,181 +1,45 @@
 #!/usr/bin/env bash
-# Antigravity CLI status line command (mirrors script/claude-statusline)
-# Format: <project>:<branch> | <model> | <effort> | C: <ctx%> | S: <session%>(reset <time>) | W: <weekly%>(reset <time>) | <HH:MM>
+# Antigravity CLI status line: maps its stdin JSON into the shape lib/statusline.sh renders.
 
-input=$(cat)
+source "$(dirname "${BASH_SOURCE[0]}")/lib/statusline.sh"
 
-# ANSI color codes (identical to Claude Code statusline)
-RESET="\033[0m"
-CYAN="\033[36m"
-GREEN="\033[32m"
-YELLOW="\033[33m"
-BLUE="\033[34m"
-WHITE="\033[37m"
-DIM="\033[2m"
-RED="\033[31m"
-ORANGE="\033[38;5;208m"
-SEP="${DIM}|${RESET}"
-
-# Project name: basename of project_dir
-project=$(printf '%s' "$input" | jq -r '.workspace.project_dir // .workspace.current_dir // .cwd // "."' | xargs basename)
-
-# Git branch from current_dir / cwd
-cwd=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // "."')
-branch=$(git -C "$cwd" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null)
-if [ -z "$branch" ]; then
-  branch=$(git -C "$cwd" --no-optional-locks rev-parse --short HEAD 2>/dev/null)
-fi
-
-# Session edit-context label (compatible with Claude status hook if present)
-session_id=$(printf '%s' "$input" | jq -r '.session_id // .conversation_id // empty')
-session_label=""
-if [ -n "$session_id" ]; then
-  status_file="/tmp/claude_status_${session_id}"
-  if [ -f "$status_file" ]; then
-    session_label=$(jq -r '.label // empty' "$status_file" 2>/dev/null)
-  fi
-fi
-
-# Model display name & effort (.model.effort in Antigravity)
-model=$(printf '%s' "$input" | jq -r '.model.display_name // "Antigravity"')
-effort=$(printf '%s' "$input" | jq -r '.model.effort // .effort.level // empty')
-
-# Strip redundant trailing "(Medium)" etc. from display_name when effort is shown separately
-if [ -n "$effort" ]; then
-  model=$(printf '%s' "$model" | jq -Rr 'sub("[[:space:]]*\\((Low|Medium|High|XHigh|Max)\\)$"; ""; "i")')
-fi
-
-# Context used percentage
-ctx_used=$(printf '%s' "$input" | jq -r '.context_window.used_percentage // empty')
-
-# Quota buckets -> map to S (short/session) and W (weekly) used percentage + reset seconds
-# Prefer buckets matching the active model family (gemini/claude); otherwise pick highest usage per window.
-read -r short_pct short_reset week_pct week_reset < <(
-  printf '%s' "$input" | jq -r --arg m "$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')" '
-    def family:
-      if ($m | contains("claude")) then "claude"
-      elif ($m | contains("gemini")) then "gemini"
-      else "" end;
-    def is_short($k; $v):
-      (($k | ascii_downcase) | test("5h|5_h|five|session|short|hour|daily"))
-      or (($v.reset_in_seconds // 999999) <= 21600);
-    def pick($list):
-      if ($list | length) == 0 then null
+# Quota buckets -> S (short/session) and W (weekly). Prefer buckets matching the
+# active model family (gemini/claude); otherwise pick the highest usage per window.
+# shellcheck disable=SC2016  # $effort etc. are jq variables, not shell
+statusline_main '
+  (.model.effort // .effort.level) as $effort
+  # display_name repeats the effort as "(Medium)" etc.; drop it since effort is shown separately
+  | (.model.display_name // "Antigravity"
+     | if ($effort // "") != "" then sub("[[:space:]]*\\((Low|Medium|High|XHigh|Max)\\)$"; ""; "i") else . end
+    ) as $model
+  | ($model | ascii_downcase
+     | if contains("claude") then "claude" elif contains("gemini") then "gemini" else "" end
+    ) as $fam
+  | def is_short:
+      (.key | ascii_downcase | test("5h|5_h|five|session|short|hour|daily"))
+      or ((.value.reset_in_seconds // 999999) <= 21600);
+    def pick:
+      if length == 0 then null
       else
-        (family) as $fam
-        | ($list | map(select($fam != "" and (.key | ascii_downcase | contains($fam))))) as $matched
-        | (if ($matched | length) > 0 then $matched else $list end)
+        map(select($fam != "" and (.key | ascii_downcase | contains($fam)))) as $matched
+        | (if ($matched | length) > 0 then $matched else . end)
         | max_by(1 - (.value.remaining_fraction // 1))
       end;
-
-    ((.quota // {}) | to_entries | map(select((.value.disabled // false) != true and .value.remaining_fraction != null))) as $entries
-    | (pick($entries | map(select(is_short(.key; .value))))) as $s
-    | (pick($entries | map(select(is_short(.key; .value) | not)))) as $w
-    | [
-        (if $s then ((1 - $s.value.remaining_fraction) * 100 | if . < 0 then 0 elif . > 100 then 100 else . end) else "-" end),
-        (if $s and $s.value.reset_in_seconds != null then ($s.value.reset_in_seconds | floor) else "-" end),
-        (if $w then ((1 - $w.value.remaining_fraction) * 100 | if . < 0 then 0 elif . > 100 then 100 else . end) else "-" end),
-        (if $w and $w.value.reset_in_seconds != null then ($w.value.reset_in_seconds | floor) else "-" end)
-      ]
-    | @tsv
-  '
-)
-[ "$short_pct" = "-" ] && short_pct=""
-[ "$short_reset" = "-" ] && short_reset=""
-[ "$week_pct" = "-" ] && week_pct=""
-[ "$week_reset" = "-" ] && week_reset=""
-
-# Current time
-now=$(date +%H:%M)
-
-# Helper: format remaining seconds into XdYh, XhYm, or Ym
-format_reset_secs() {
-  local diff="$1"
-  if [ -z "$diff" ]; then return; fi
-  if [ "$diff" -le 0 ]; then
-    echo "now"
-    return
-  fi
-  local days=$(( diff / 86400 ))
-  local hours=$(( (diff % 86400) / 3600 ))
-  local mins=$(( (diff % 3600) / 60 ))
-  if [ "$days" -gt 0 ]; then
-    printf "%dd%dh" "$days" "$hours"
-  elif [ "$hours" -gt 0 ]; then
-    printf "%dh%dm" "$hours" "$mins"
-  else
-    printf "%dm" "$mins"
-  fi
-}
-
-# Helper: pick color for percentage (white < 70, orange 70-89, red >= 90)
-pct_color() {
-  local pct="$1"
-  local int_pct
-  int_pct=$(printf '%.0f' "$pct")
-  if [ "$int_pct" -ge 90 ]; then
-    printf "%s" "$RED"
-  elif [ "$int_pct" -ge 70 ]; then
-    printf "%s" "$ORANGE"
-  else
-    printf "%s" "$WHITE"
-  fi
-}
-
-# Build output with printf to handle escape sequences
-out=""
-
-# Edit-context label takes priority; otherwise project:branch — cyan project, green branch
-if [ -n "$session_label" ]; then
-  out="${CYAN}${session_label}${RESET}"
-elif [ -n "$branch" ]; then
-  out="${CYAN}${project}${RESET}:${GREEN}${branch}${RESET}"
-else
-  out="${CYAN}${project}${RESET}"
-fi
-
-# Model — yellow, followed by effort level (colored by intensity)
-out="${out} ${SEP} ${YELLOW}${model}${RESET}"
-if [ -n "$effort" ]; then
-  case "$effort" in
-    max)    ec="$RED" ;;
-    xhigh)  ec="$ORANGE" ;;
-    high)   ec="$YELLOW" ;;
-    medium) ec="$GREEN" ;;
-    *)      ec="$DIM" ;;
-  esac
-  out="${out} ${SEP} ${ec}${effort}${RESET}"
-fi
-
-# Context — white/orange/red depending on usage
-if [ -n "$ctx_used" ]; then
-  c=$(pct_color "$ctx_used")
-  out="${out} ${SEP} ${DIM}C:${RESET} ${c}$(printf '%.0f' "$ctx_used")%${RESET}"
-fi
-
-# Short / session quota
-if [ -n "$short_pct" ]; then
-  short_reset_str=$(format_reset_secs "$short_reset")
-  c=$(pct_color "$short_pct")
-  short_str="${DIM}S:${RESET} ${c}$(printf '%.0f' "$short_pct")%${RESET}"
-  if [ -n "$short_reset_str" ]; then
-    short_str="${short_str}${DIM}(reset ${short_reset_str})${RESET}"
-  fi
-  out="${out} ${SEP} ${short_str}"
-fi
-
-# Weekly quota
-if [ -n "$week_pct" ]; then
-  week_reset_str=$(format_reset_secs "$week_reset")
-  c=$(pct_color "$week_pct")
-  week_str="${DIM}W:${RESET} ${c}$(printf '%.0f' "$week_pct")%${RESET}"
-  if [ -n "$week_reset_str" ]; then
-    week_str="${week_str}${DIM}(reset ${week_reset_str})${RESET}"
-  fi
-  out="${out} ${SEP} ${week_str}"
-fi
-
-# Time — blue
-out="${out} ${SEP} ${BLUE}${now}${RESET}"
-
-printf "%b" "$out"
+    def used_pct:
+      if . == null then null
+      else (1 - .value.remaining_fraction) * 100 | if . < 0 then 0 elif . > 100 then 100 else . end
+      end;
+    ((.quota // {}) | to_entries
+      | map(select((.value.disabled // false) != true and .value.remaining_fraction != null))
+    ) as $entries
+  | ($entries | map(select(is_short)) | pick) as $s
+  | ($entries | map(select(is_short | not)) | pick) as $w
+  | {
+      model: $model,
+      effort: $effort,
+      short_pct: ($s | used_pct),
+      short_reset: $s.value.reset_in_seconds,
+      week_pct: ($w | used_pct),
+      week_reset: $w.value.reset_in_seconds
+    }
+'
