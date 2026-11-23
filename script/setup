@@ -61,6 +61,24 @@ _setup_git_identities() {
     git config --global core.excludesfile "$global_gitignore"
     echo "✅ Configured global gitignore to use $global_gitignore"
 
+    # --- Git Defaults ---
+    echo "Setting up Git defaults..."
+    git config --global init.defaultBranch main
+    # Drop remote-tracking refs of branches deleted on the remote (such as a merged PR's) on every fetch.
+    git config --global fetch.prune true
+    # A new branch's first push sets its upstream, without -u.
+    git config --global push.autoSetupRemote true
+    # Pull rebases instead of making a merge commit, stashing uncommitted changes around it.
+    git config --global pull.rebase true
+    git config --global rebase.autoStash true
+    # Conflicts show the common ancestor too, and a resolution is replayed when the same conflict comes back.
+    git config --global merge.conflictStyle zdiff3
+    git config --global rerere.enabled true
+    git config --global diff.algorithm histogram
+    # `git branch` lists the most recently committed-to branches first.
+    git config --global branch.sort -committerdate
+    echo "✅ Git defaults setup completed!"
+
     # --- Per-directory Git Config ---
     _setup_git_workspace() {
         local workspace_name="$1"
