@@ -228,46 +228,43 @@ _setup_node() {
     fi
 }
 
-_setup_corepack() {
-    echo "Enabling Corepack (pnpm/yarn shims)..."
+_setup_pnpm() {
+    echo "Setting up pnpm..."
 
-    # Homebrew's `node` formula does not ship corepack; the fnm-managed Node
-    # does. Load fnm's env so `corepack` resolves to the fnm Node bin.
+    # pnpm is installed into the fnm-managed default Node, so load fnm's env.
     if command -v fnm &> /dev/null; then
         eval "$(fnm env)"
     fi
 
-    if ! command -v corepack &> /dev/null; then
-        echo "⚠️  corepack not found (requires Node.js >= 16.9). Skipping."
+    if ! command -v npm &> /dev/null; then
+        echo "⚠️  npm not found (Node.js missing). Skipping."
         return 0
     fi
 
-    # Corepack ships with Node and manages pnpm/yarn versions per-project,
-    # so they follow the active Node version instead of a global install.
-    corepack enable
-
-    echo "✅ Corepack enabled — run pnpm/yarn directly (auto-downloaded on first use)."
+    # Node.js 25+ no longer bundles corepack, so pnpm is a global npm install.
+    # pnpm still runs the version each project pins in packageManager.
+    # --allow-scripts lets its install script swap in the native binary.
+    if command -v pnpm &> /dev/null; then
+        echo "✅ pnpm already installed ($(pnpm --version 2>/dev/null))"
+    elif npm install --global --allow-scripts=pnpm pnpm@latest >/dev/null; then
+        echo "✅ Installed pnpm $(pnpm --version 2>/dev/null)"
+    else
+        echo "⚠️  npm install -g pnpm failed. Skipping."
+        return 0
+    fi
 
     # zsh ships a built-in _npm completion but not _pnpm. Pre-generate pnpm's
     # zsh completion to a cache file so .zshrc can load it cheaply at startup.
-    if command -v pnpm &> /dev/null; then
-        local comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
-        mkdir -p "$comp_dir"
-        local comp_file="$comp_dir/pnpm-completion.zsh"
-        # Warm up pnpm first. This is its first invocation, so corepack would
-        # download it now and (on a TTY) block on a confirmation prompt whose
-        # text we send to /dev/null — looking like a hang. Disable that prompt
-        # and isolate the download from the completion output below.
-        COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm --version >/dev/null 2>&1 || true
-        # Verify the output really is a completion script (#compdef header), so
-        # any stray corepack/download text doesn't get cached as a broken file.
-        if COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm completion zsh > "$comp_file" 2>/dev/null \
-            && grep -q '#compdef' "$comp_file"; then
-            echo "✅ Generated pnpm zsh completion → $comp_file"
-        else
-            echo "⚠️  Failed to generate pnpm completion. Skipping."
-            rm -f "$comp_file"
-        fi
+    local comp_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+    mkdir -p "$comp_dir"
+    local comp_file="$comp_dir/pnpm-completion.zsh"
+    # Verify the output really is a completion script (#compdef header), so
+    # stray warnings don't get cached as a broken file.
+    if pnpm completion zsh > "$comp_file" 2>/dev/null && grep -q '#compdef' "$comp_file"; then
+        echo "✅ Generated pnpm zsh completion → $comp_file"
+    else
+        echo "⚠️  Failed to generate pnpm completion. Skipping."
+        rm -f "$comp_file"
     fi
 }
 
@@ -429,7 +426,7 @@ main() {
     # both suppresses that abort and lets us collect and report failures.
     local failed_steps=()
     local step
-    for step in _setup_zsh _setup_git_identities _setup_node _setup_corepack _setup_claude_cli _setup_antigravity_cli _setup_codex_statusline; do
+    for step in _setup_zsh _setup_git_identities _setup_node _setup_pnpm _setup_claude_cli _setup_antigravity_cli _setup_codex_statusline; do
         if ! "$step"; then
             echo "⚠️  Step failed: $step (continuing with remaining steps)"
             failed_steps+=("$step")
