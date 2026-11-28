@@ -45,6 +45,12 @@ _install_brew_packages() {
 
     _install_homebrew
 
+    # Leave self-updating apps (VS Code, Chrome, OrbStack…) to their own updaters.
+    # Otherwise brew re-downloads them whenever the app lags the tap: the new copy is
+    # quarantined again (the next login stops at "are you sure you want to open it?")
+    # and running apps get quit mid-upgrade. Covers both `brew upgrade` and `brew bundle`.
+    export HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1
+
     echo "Updating Homebrew..."
     brew update
     brew upgrade

@@ -52,6 +52,8 @@ graph TB
 ### macOS (via Homebrew)
 
 Managed through [`Brewfile`](./Brewfile) - includes development tools, GUI apps, and CLI utilities.
+`setup-macos` runs `brew upgrade` and `brew bundle` with `HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1`, so self-updating apps
+(VS Code, Chrome, OrbStack…) are left to their own updaters instead of being re-downloaded (and re-quarantined) by brew.
 
 ### Ubuntu (hardcoded in setup-ubuntu)
 
