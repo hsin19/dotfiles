@@ -34,7 +34,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/hsin19/dotfiles/refs/heads/m
 ### 🍎 macOS (Desktop Development)
 
 - Homebrew + packages from Brewfile
-- GUI Apps: VS Code, Notion, etc.
+- GUI Apps: VS Code, Ghostty, etc.
 - Development tools: Node, Python, and more
 
 ### 🐧 Ubuntu (Server Development)

@@ -42,8 +42,6 @@ cask "ghostty"
 cask "git-credential-manager"
 # Multi-platform web browser
 cask "microsoft-edge"
-# App to write, plan, collaborate, and get organised
-cask "notion"
 # Snip or pin screenshots
 cask "snipaste"
 # Open-source code editor
